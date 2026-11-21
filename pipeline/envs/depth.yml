@@ -1,0 +1,24 @@
+# S8 people layer (pipeline/s8_people_layer.py). Metric Video Depth Anything (Small, Apache-2.0 code).
+# conda env create -f pipeline/envs/depth.yml
+# The model code is not pip-installable, so clone it next to the weights:
+#   git clone https://github.com/DepthAnything/Video-Depth-Anything /data/models/Video-Depth-Anything
+#   (tested at commit 4f5ae23)
+#   curl -L -o /data/models/Video-Depth-Anything/checkpoints/metric_video_depth_anything_vits.pth \
+#     https://huggingface.co/depth-anything/Metric-Video-Depth-Anything-Small/resolve/main/metric_video_depth_anything_vits.pth
+# ffmpeg must be on PATH (apt install ffmpeg).
+name: depth
+channels: [conda-forge]
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - --extra-index-url https://download.pytorch.org/whl/cu128
+      - torch==2.10.0
+      - torchvision==0.25.0
+      - numpy==2.4.6
+      - pillow==13.0.0
+      - opencv-python-headless==5.1.0.95
+      - einops==0.8.2
+      - easydict==1.14
+      - tqdm==4.70.1
+      - pytest==9.2.0
