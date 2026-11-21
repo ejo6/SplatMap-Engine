@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 // KAN-21 / S-09 (PRD §8, docs/world-format.md): builds the hand-made worlds/test/v1/
 // fixture that unblocks viewer work (gate G1) before the real pipeline exists.
+// KAN-52 / SH-09 (PRD §10.6, FR-25): the reconstructed shot now ends before the video does,
+// so the last SHOT_DURATION..DURATION seconds land in `unreconstructed` and exercise the
+// out-of-shot panel.
 // Run: cd web && node scripts/make-test-world.mjs
 
 import { spawn } from 'node:child_process';
@@ -15,8 +18,9 @@ const OUT = path.resolve(HERE, '../../worlds/test/v1');
 const S0 = path.join(OUT, 's0');
 
 const FPS = 30;
-const DURATION = 10; // seconds
-const FRAME_COUNT = FPS * DURATION;
+const DURATION = 10; // seconds, the full master video
+const SHOT_DURATION = 8; // seconds; the reconstructed shot ends here, leaving a 2s unreconstructed tail (KAN-52)
+const FRAME_COUNT = FPS * SHOT_DURATION; // the reconstructed shot's own frame count (cameras, splat, holo)
 const WIDTH = 1280;
 const HEIGHT = 720;
 const WALK_RADIUS = 4; // metres, shared by the walk SDF and the coverage sphere
@@ -137,7 +141,7 @@ async function buildWalkBounds() {
   const walk = {
     eyeHeight: EYE_HEIGHT,
     startFrame: 0,
-    fog: { color: [0.05, 0.05, 0.08], radius: WALK_RADIUS },
+    fog: { color: [0.85, 0.85, 0.88], radius: WALK_RADIUS },
     sdf: { url: 'walk_sdf.bin', origin: sdfOrigin, cellSize: sdfCellSize, width: sdfW, height: sdfH },
     coverage: { url: 'coverage.bin', origin: covOrigin, cellSize: covCellSize, dims },
   };
@@ -289,7 +293,7 @@ async function buildManifest(splatCount) {
       {
         id: 's0',
         start: 0,
-        end: DURATION,
+        end: SHOT_DURATION,
         frameCount: FRAME_COUNT,
         world: { spz: 's0/world.spz', splatCount },
         cameras: 's0/cameras.json',
@@ -298,7 +302,7 @@ async function buildManifest(splatCount) {
         people: [],
       },
     ],
-    unreconstructed: [],
+    unreconstructed: [{ start: SHOT_DURATION, end: DURATION }],
     qa: { verdict: 'unchecked', notes: 'Hand-made fixture; no Gemini QA run.', fogRadius: WALK_RADIUS },
     createdAt: new Date().toISOString(),
   };
