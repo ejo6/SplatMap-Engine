@@ -68,3 +68,20 @@ Stages S2, S6, S7 and S8 from PRD §7.2. Each reads and writes `work/<youtubeId>
 - **Debug page:** `npm run dev` in `web/`, then open `/src/people/debug.html?world=<id>&yaw=<deg>&dx=<m>`.
   - It needs `worlds/<id>/v1` copied into `web/public/worlds/` (not committed).
   - `yaw=0&dx=0` is the original pose and should match the video exactly.
+
+## S6a body tracking: `pipeline/s6_body.py` (A-03)
+
+- **Tracker:** GVHMR (decision on A-02 / KAN-37). Runs in the `people` env from the GVHMR clone (`--gvhmr-repo` or `$GVHMR_REPO`, default `/data/src/GVHMR`), with its checkpoints and SMPL-X linked by `download_weights.sh`.
+- **Run:** `python pipeline/s6_body.py --work work/<id> [--cameras PATH] [--force]`. It skips when every person already has an `.npz`.
+- **Method:** for each `label == "person"` instance in `S2/tracks.json`:
+  - Span: the first to last visible frame. SAM boxes are linearly interpolated across occlusion gaps.
+  - Inputs: GVHMR gets **that instance's SAM boxes** (in place of its own YOLO tracker), plus ViTPose 2D keypoints and HMR2 features.
+  - Matching: SAM instances and bodies are matched one-to-one by construction, and non-person instances never become bodies. There is no limb refinement against keypoints (PRD §3).
+- **Camera:**
+  - With `S3/cameras.json` (E-03): the intrinsics come from it, and per-frame rotation comes from `c2w`, converted from three.js to OpenCV axes.
+  - Without it: GVHMR's `estimate_K` plus `SimpleVO` odometry. This is a shortcut until E-03 lands, and A-04 needs real cameras anyway.
+- **Output:** `S6/body/<objId>.npz`, one per person:
+  - Frame data: `frames` (absolute frame indices of the span), `visible` (ranges from `tracks.json`), `K` (3×3).
+  - SMPL-X parameters: `betas` (10, the median over the span, so one shape per person), `incam_{global_orient (F,3), body_pose (F,63), transl (F,3)}` (camera space, OpenCV axes; `transl` has a 5-frame moving average), `global_{global_orient, body_pose, transl}` (GVHMR's gravity-aligned world).
+  - `cam_source`: `"cameras.json"` or `"simplevo"`.
+  - A-04 places people with `incam_*` + `cameras.json` + the floor. The `global_*` parameters are kept for reference.
