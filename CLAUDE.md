@@ -9,7 +9,7 @@ PRD: [docs/prd.md](docs/prd.md). Read it before every task and follow its §16 (
 
 ## Repo layout (PRD §16)
 - `extension/` MV3 extension · `web/` Vite + TS + three.js + Spark (people code in `web/src/people/`) · `server/` FastAPI + GPU worker · `pipeline/` stage scripts `s0_ingest.py`…`s9_package.py`, runner `run.py`, conda specs `envs/*.yml` · `config/` `gemini.yaml`, pipeline defaults · `docs/` world format, GPU setup/ledger, clips, demo worlds.
-- `work/` and `worlds/` (repo root) are git-ignored pipeline output. Never commit `.env`, keys, cookies, model weights or SMPL/SMPL-X files.
+- `work/` (repo root) is git-ignored pipeline output. `worlds/` holds packaged demo worlds and **is committed** (no `.ply`; `worlds/test/` is regenerated). Never commit `.env`, keys, cookies, model weights or SMPL/SMPL-X files.
 - Copy `.env.example` to `.env` and fill only the keys your area needs.
 
 ## Project Management (Jira)

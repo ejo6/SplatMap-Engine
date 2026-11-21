@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "pipelineVersion": "1",
+  "youtubeId": "9lY7iZl1KbI",
+  "title": "Misty forest path",
+  "video": { "url": "video.mp4", "fps": 30, "width": 1280, "height": 720, "duration": 30.0,
+             "sourceStart": 0.0, "thumbs": { "sprite": "thumbs.jpg", "index": "thumbs.json" } },
+  "shots": [{
+    "id": "s0", "start": 0.0, "end": 30.0, "frameCount": 900,
+    "world": { "rad": "s0/world.rad" },
+    "cameras": "s0/cameras.json",
+    "people": []
+  }],
+  "unreconstructed": [],
+  "createdAt": "2026-11-21T21:30:00Z"
+}
