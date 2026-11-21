@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { SparkRenderer, SplatMesh } from '@sparkjsdev/spark';
+import { MasterClock, unmuteOnFirstGesture } from './clock';
 import './style.css';
 
 // SH-01: viewer scaffold + world loader (PRD §7.4, §8, §10.8, FR-05)
@@ -12,7 +13,8 @@ function setStatus(text: string) {
 }
 
 interface Manifest {
-  shots: { world: { rad?: string; spz?: string } }[];
+  video: { url: string; fps: number };
+  shots: { id: string; start: number; frameCount: number; world: { rad?: string; spz?: string } }[];
 }
 
 async function resolveManifest(youtubeId: string): Promise<{ manifest: Manifest; base: string } | null> {
@@ -69,6 +71,16 @@ async function loadWorld(manifest: Manifest, base: string) {
   });
 
   renderer.setAnimationLoop(() => renderer.render(scene, camera));
+
+  // SH-02: the master video is the only clock; every other layer reads its bus (PRD §10.1, FR-15).
+  const video = document.createElement('video');
+  video.src = base + manifest.video.url;
+  video.muted = true;
+  video.playsInline = true;
+  video.autoplay = true;
+  unmuteOnFirstGesture(video);
+  new MasterClock(video, shot, manifest.video.fps);
+  void video.play();
 }
 
 async function main() {
