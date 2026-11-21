@@ -39,6 +39,7 @@ people.video.loop = true;
 await people.video.play();
 renderer.setAnimationLoop(() => {
   camera.matrix.copy(people.mesh.matrix).multiply(offset);
+  camera.matrixWorldNeedsUpdate = true;
   renderer.render(scene, camera);
   hud.textContent = `frame ${people.frame}  yaw ${q.get('yaw') ?? 0}°  dx ${dx} m`;
 });

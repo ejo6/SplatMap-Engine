@@ -29,7 +29,7 @@ const vertexShader = /* glsl */ `
   uniform vec2 cell;      // one grid step in uv
   varying vec2 vUv;
   varying float vValid;
-  varying float vStretch;
+  varying float vBad;
 
   // uv: image coords with v = 1 at the top. Depth lives in the bottom half of the texture.
   float depthAt(vec2 uv) {
@@ -42,11 +42,17 @@ const vertexShader = /* glsl */ `
   void main() {
     vUv = uv;
     float d = depthAt(uv);
-    float dx = depthAt(uv + vec2(cell.x, 0.0));
-    float dy = depthAt(uv - vec2(0.0, cell.y));
     vValid = d > 0.0 ? 1.0 : 0.0;
-    float lo = min(d, min(dx, dy));
-    vStretch = lo > 0.0 ? max(d, max(dx, dy)) / lo : 1.0;
+    // Flag the vertex if any valid neighbour's depth differs by more than the max ratio. The flag is 0/1,
+    // so every triangle touching a flagged vertex interpolates > 0 and is discarded whole (no slivers).
+    float ratio = 1.0;
+    for (int i = -1; i <= 1; i++) {
+      for (int j = -1; j <= 1; j++) {
+        float n = depthAt(uv + vec2(float(i) * cell.x, float(j) * cell.y));
+        if (n > 0.0 && d > 0.0) ratio = max(ratio, max(n, d) / min(n, d));
+      }
+    }
+    vBad = ratio > ${MAX_STRETCH.toFixed(2)} ? 1.0 : 0.0;
 
     float z = max(d, 0.01);
     float px = uv.x * size.x;
@@ -62,10 +68,10 @@ const fragmentShader = /* glsl */ `
   uniform float opacity;
   varying vec2 vUv;
   varying float vValid;
-  varying float vStretch;
+  varying float vBad;
 
   void main() {
-    if (vValid < 0.999 || vStretch > ${MAX_STRETCH.toFixed(2)}) discard;
+    if (vValid < 0.999 || vBad > 0.0) discard;
     gl_FragColor = vec4(texture2D(map, vec2(vUv.x, 0.5 + vUv.y * 0.5)).rgb, opacity);
   }
 `;

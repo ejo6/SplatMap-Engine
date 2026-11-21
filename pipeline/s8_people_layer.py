@@ -34,14 +34,35 @@ def progress(pct, eta=None):
     print(json.dumps({"stage": STAGE, "pct": round(pct, 1), "eta": eta}), flush=True)
 
 
+def instance_masks(mask_dirs, stem):
+    """S2 instance masks visible in one frame (list of bool HxW)."""
+    return [np.array(Image.open(d / f"{stem}.png")) > 127 for d in mask_dirs if (d / f"{stem}.png").exists()]
+
+
 def mover_mask(mask_dirs, stem, shape):
     """Union of all S2 instance masks for one frame (bool HxW)."""
     m = np.zeros(shape, bool)
-    for d in mask_dirs:
-        p = d / f"{stem}.png"
-        if p.exists():
-            m |= np.array(Image.open(p)) > 127
+    for im in instance_masks(mask_dirs, stem):
+        m |= im
     return m
+
+
+def smooth_depth(depth, masks, k):
+    """Box-blur depth over each instance's own pixels only (k px, odd).
+
+    Monocular depth is noisy inside a person and bleeds background depth into the outline, which makes
+    the A-10 shader drop triangles (depth ratio > 1.08) even on-axis. Blurring per instance removes that
+    without leaking background depth in or smearing the real jump between two people.
+    """
+    import cv2
+
+    out = depth.copy()
+    for m in masks:
+        mf = m.astype(np.float32)
+        num = cv2.blur(depth * mf, (k, k))
+        den = cv2.blur(mf, (k, k))
+        out[m] = num[m] / np.maximum(den[m], 1e-6)
+    return out
 
 
 def encode_inv_depth(depth, mask):
@@ -136,8 +157,10 @@ def main():
         stdin=subprocess.PIPE,
     )
     near_far = []
+    k = round(w / 40) | 1  # ~33 px at 1280 wide
     for i in range(n):
-        v, nf = encode_inv_depth(depths[i], masks[i])
+        d = smooth_depth(depths[i], instance_masks(mask_dirs, stems[i]), k)
+        v, nf = encode_inv_depth(d, masks[i])
         near_far.append(nf)
         enc.stdin.write(np.concatenate([frames[i], np.repeat(v[..., None], 3, axis=2)]).tobytes())
     enc.stdin.close()

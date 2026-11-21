@@ -36,3 +36,20 @@ def test_fit_scale_uses_background_only():
     ref[:5] = 99.0  # people region in the reference must be ignored
     assert abs(fit_scale(depths, {0: ref}, masks) - 1.5) < 1e-6
     assert fit_scale(depths, {}, masks) == 1.0
+
+
+def test_smooth_depth_stays_inside_each_instance():
+    from s8_people_layer import smooth_depth
+
+    depth = np.full((20, 20), 9.0, np.float32)  # background far away
+    a = np.zeros((20, 20), bool)
+    b = np.zeros((20, 20), bool)
+    a[5:15, 2:9] = True
+    b[5:15, 9:16] = True  # touching a, but a different person
+    depth[a] = 2.0
+    depth[b] = 4.0
+    depth[10, 5] = 3.0  # noise inside a
+    out = smooth_depth(depth, [a, b], 5)
+    assert out[a].max() < 2.1 and out[a].min() > 1.9  # noise smoothed, no background or b leaked in
+    assert np.allclose(out[b], 4.0)
+    assert np.allclose(out[~(a | b)], 9.0)  # background untouched
