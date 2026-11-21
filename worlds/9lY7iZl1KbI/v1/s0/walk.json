@@ -1,1 +1,1 @@
-{"eyeHeight":1.3309443466666653,"startFrame":0,"fog":{"color":[0.06,0.09,0.07],"radius":4},"sdf":{"url":"walk_sdf.bin","origin":[-8.228728,-28.605599],"cellSize":0.1,"width":133,"height":337}}
+{"eyeHeight":1.3309443466666653,"startFrame":0,"fog":{"color":[0.85,0.85,0.88],"radius":4},"sdf":{"url":"walk_sdf.bin","origin":[-8.228728,-28.605599],"cellSize":0.1,"width":133,"height":337}}

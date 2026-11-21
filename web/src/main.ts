@@ -9,6 +9,7 @@ import { ScrubController } from './scrub';
 import { loadPeople } from './people';
 import type { WalkSdfGrid } from './walk-bounds';
 import { bindFogToggle, FogVolume } from './fog';
+import { isUnreconstructed, OutOfShotFx, type UnreconstructedRange } from './out-of-shot';
 import './style.css';
 
 // SH-01: viewer scaffold + world loader (PRD §7.4, §8, §10.8, FR-05)
@@ -22,7 +23,7 @@ function setStatus(text: string) {
 }
 
 interface Manifest {
-  video: { url: string; fps: number; thumbs: { sprite: string; index: string } };
+  video: { url: string; fps: number; width: number; height: number; thumbs: { sprite: string; index: string } };
   shots: {
     id: string;
     start: number;
@@ -33,6 +34,8 @@ interface Manifest {
     cameras: string;
     bounds?: { walk?: string; colliders?: string };
   }[];
+  // SH-09 (PRD §8.3, §10.6): gaps in the processed window with no reconstructed shot at all.
+  unreconstructed?: UnreconstructedRange[];
 }
 
 // SH-07/SH-08: walk.json's own file spec (docs/world-format.md), beyond the `eyeHeight` SH-01 already read.
@@ -42,7 +45,7 @@ interface WalkFile {
   sdf?: { url: string; origin: [number, number]; cellSize: number; width: number; height: number };
 }
 
-const DEFAULT_FOG_COLOR: [number, number, number] = [0.05, 0.05, 0.08];
+const DEFAULT_FOG_COLOR: [number, number, number] = [0.85, 0.85, 0.88]; // white mist, not a sky tint (PRD §3 "fog by default")
 
 interface WalkBoundsResult {
   sdf?: WalkSdfGrid;
@@ -156,10 +159,18 @@ async function loadWorld(manifest: Manifest, base: string) {
   const people = await loadPeople(base, shot, video, manifest.video.fps, cameras);
   scene.add(people.group);
 
+  // SH-09: out-of-shot panel (PRD §10.6, FR-25)
+  const unreconstructed = manifest.unreconstructed ?? [];
+  const outOfShotFx = new OutOfShotFx(video, manifest.video.width / manifest.video.height, fogColor);
+  scene.add(outOfShotFx.group);
+  let outOfShot = false;
+
   new MasterClock(video, shot, manifest.video.fps).subscribe((state) => {
     rig.setFrame(state.frame);
     overlay.setFrame(poseAt(cameras, state.frame));
     people.setFrame(state.frame);
+    outOfShot = isUnreconstructed(state.t, unreconstructed);
+    outOfShotFx.setActive(outOfShot);
   });
   void video.play();
 
@@ -176,7 +187,11 @@ async function loadWorld(manifest: Manifest, base: string) {
     timer.update();
     const dt = timer.getDelta();
     rig.update(dt);
-    overlay.setMode(rig.mode);
+    outOfShotFx.update(rig.camera, dt);
+    world.opacity = outOfShotFx.presence;
+    people.group.visible = outOfShotFx.presence > 0;
+    // Out of shot there's no pose for the overlay to glue to, so fade it like the walk mode does.
+    overlay.setMode(outOfShot ? 'walk' : rig.mode);
     overlay.update(dt);
     people.update(rig.camera, rig.mode);
     renderer.render(scene, rig.camera);

@@ -96,7 +96,7 @@ This writes `worlds/test/v1/` at the repo root (git-ignored, unlike the committe
 What it builds, and where it's a simplification vs. the real pipeline:
 
 - **`s0/world.spz`** — a small splat (a tan floor grid + a red sphere "subject"), encoded with Spark's own `writeSpz()` (`@sparkjsdev/spark`, already a `web/` dependency), so the bytes are a real, viewer-loadable SPZ file rather than a hand-rolled approximation. No `world.rad` (the viewer falls back to `.spz` when `.rad` is absent).
-- **`s0/cameras.json`** — a straight line, 10 s at 30 fps (300 frames), translating in X at eye height with identity rotation (looking down −Z).
+- **`s0/cameras.json`** — a straight line, 8 s at 30 fps (240 frames), translating in X at eye height with identity rotation (looking down −Z). The master video runs 2 s longer than that (10 s total): `manifest.unreconstructed` covers `[8, 10]` so the tail exercises the out-of-shot panel (KAN-52 / SH-09).
 - **`s0/walk.json` + `walk_sdf.bin` + `coverage.bin`** — a circular walkable area (radius 4 m) on the floor, and a matching coverage sphere (same radius, centered at eye height) in the 3D coverage grid.
 - **`s0/colliders.glb`** — a single flat quad spanning the walk circle, as a minimal placeholder collider (not real geometry).
 - **`s0/holo.mp4` + `holo.json`** — a coloured rectangle moving sideways at a constant 2 m depth; `holo.json` uses a constant `[near, far] = [1, 5]` per frame.
