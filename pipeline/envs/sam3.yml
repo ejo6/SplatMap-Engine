@@ -14,3 +14,7 @@ dependencies:
       - pycocotools
       - decord==0.6.0
       - psutil
+      # pipeline/s2_masks.py runs SAM 3 through transformers (Sam3VideoModel), not the repo's predictor
+      - transformers==5.24.0
+      - accelerate==1.13.0
+      - kernels==0.18.3  # without it SAM 3 skips NMS (duplicate tracks), hole filling and sprinkle removal

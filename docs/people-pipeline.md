@@ -4,7 +4,7 @@ Stages S2, S6, S7 and S8 from PRD §7.2. Each reads and writes `work/<youtubeId>
 
 ## S2 masks: `pipeline/s2_masks.py` (A-01)
 
-- **Env:** `conda env create -f pipeline/envs/sam3.yml`. SAM 3 is loaded through Hugging Face `transformers` (`Sam3VideoModel`), not the `facebookresearch/sam3` repo. `HF_TOKEN` must belong to an account with `facebook/sam3` access.
+- **Env:** the `sam3` env (`pipeline/envs/sam3.yml`, built by `setup_gpu.sh`). SAM 3 is loaded through Hugging Face `transformers` (`Sam3VideoModel`), which is pinned in that yml; the repo's own predictor isn't used. `HF_TOKEN` must belong to an account with `facebook/sam3` access.
 - **Run:** `python pipeline/s2_masks.py --work work/<id> [--dilate 15] [--min-frames 10] [--force]`. It skips if `S2/tracks.json` exists. It prints JSON progress lines like `{"stage":"S2","pct":..,"eta":..}`.
 - **Inputs:**
   - `S0/frames/*.jpg`: every frame of the processed window, sorted by name.
@@ -21,7 +21,7 @@ Stages S2, S6, S7 and S8 from PRD §7.2. Each reads and writes `work/<youtubeId>
 
 ## S8 people layer: `pipeline/s8_people_layer.py` (A-08)
 
-- **Env:** `conda env create -f pipeline/envs/depth.yml`, plus a clone of Video-Depth-Anything with its metric Small checkpoint. Setup commands are in the yml header. Point `--vda-repo` (or `$VDA_REPO`, default `/data/models/Video-Depth-Anything`) at the clone.
+- **Env:** the `depth` env from `pipeline/envs/setup_gpu.sh`. It uses the Video-Depth-Anything clone at `/data/src/Video-Depth-Anything` (override with `--vda-repo` or `$VDA_REPO`). `download_weights.sh` fetches the metric Small checkpoint and links it into that clone's `checkpoints/`.
 - **Run:** `python pipeline/s8_people_layer.py --work work/<id> [--ref-depth DIR] [--fps 30] [--force]`. It skips if `S8/holo.json` exists.
 - **Inputs:**
   - `S0/frames/*.jpg`.

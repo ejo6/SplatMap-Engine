@@ -109,7 +109,7 @@ def load_ref_depths(ref_dir, stems, size):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--work", required=True, type=Path, help="work/<youtubeId>")
-    ap.add_argument("--vda-repo", type=Path, default=Path(os.environ.get("VDA_REPO", "/data/models/Video-Depth-Anything")))
+    ap.add_argument("--vda-repo", type=Path, default=Path(os.environ.get("VDA_REPO", "/data/src/Video-Depth-Anything")))
     ap.add_argument("--encoder", default="vits", choices=VDA_CONFIGS)
     ap.add_argument("--ref-depth", type=Path, help="default: <work>/S3/depth")
     ap.add_argument("--fps", type=float, default=30)
