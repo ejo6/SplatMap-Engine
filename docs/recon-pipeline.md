@@ -49,3 +49,25 @@ Stages S3–S5 and S9a from PRD §7.2. Each reads and writes `work/<youtubeId>/<
   - 60% floor inliers, and the ground is flat at every distance (median height 0.00–0.05 m out to 30 m).
   - The camera is 0.76 m above the ground. That's a genuine low-angle shot (the horizon is at the subject's waist), so it triggers the warning.
   - The camera backs away 6.3 m in front of the walker, matching the footage.
+
+## S4 background splat: `pipeline/s4_background.py` (E-04)
+
+- **Env:** `recon`. gsplat JIT-compiles on first use, so export the CUDA vars from `gpu-setup.md` first (Ninja comes from the env's `bin`).
+- **Run:** `python pipeline/s4_background.py --work work/<id> [--steps 30000] [--cap 1500000] [--init 300000] [--sh-degree 1] [--depth-weight 0.1] [--force]`, or `run.py --stages S4`. It skips if `S4/world.ply` exists.
+- **Inputs:**
+  - `S0/frames`.
+  - `S3/cameras.json` and `S3/depth` (E-03).
+  - `S2/masks/union` (A-01). A keyframe without its union mask is **skipped**, so no people get baked in. With no mask folder at all, it warns and trains on everything.
+- **Method:**
+  - Trains directly in our world frame, so world-space normalization is off.
+  - Uses keyframes only (5 fps), at full 1280×720.
+  - **Movers are excluded from both losses (FR-12):** inside the union mask, the rendered RGB is replaced by the target, so those pixels give no error and no gradient. DA3 depth is zeroed there.
+  - Losses: 0.8·L1 + 0.2·(1−SSIM) on RGB, plus 0.1 × relative L1 between the rendered expected depth and DA3 depth at DA3 resolution, plus the MCMC opacity and scale regularizers (0.01 each).
+  - MCMC densification capped at 1.5M splats (the PRD §10.8 LoD budget). It starts from 300k points back-projected from DA3 depth (beyond 80 m dropped), and SH degree 1.
+  - Export: splats outside the init points' 0.5–99.5 percentile box (+10% margin) are cropped, then written as a standard 3DGS `S4/world.ply`.
+- **Outputs:** `S4/world.ply` and `S4/train.json` `{steps, seconds, splats, psnr, box}`. `psnr` is on non-mover pixels over the last 500 steps.
+- **Measured on the Tokyo-Walk sample** (61 keyframes, A40):
+  - 30k steps in 19.7 min (about 25 steps/s), 1.44M splats, 133 MB ply, PSNR 21.9 (a night scene with wet reflections).
+  - Step time doesn't depend on clip length, so a 60 s clip should stay well under 30 min.
+  - Renders at the source poses line up with the frames.
+  - The main walker isn't baked in. Where she blocked the background for the whole clip there's a dark unseen smear; that's the hole E-07 (LaMa) fills.
