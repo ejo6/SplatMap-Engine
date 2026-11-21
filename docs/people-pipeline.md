@@ -38,3 +38,18 @@ Stages S2, S6, S7 and S8 from PRD §7.2. Each reads and writes `work/<youtubeId>
   - `inv = 1/far + (v - 16)/239 * (1/near - 1/far)`, then `depth = 1/inv`.
   - H.264 ringing leaves a few non-mover pixels at 8–55, all within 3 px of a silhouette. The stretched-triangle discard (depth ratio above 1.08) removes them.
 - **Speed:** 8 frames at 960×540 took about 70 s on a Mac CPU. GPU time hasn't been measured.
+
+## S7a identity frames: `pipeline/s7_identity.py` (A-05)
+
+- **Env:** any env with `pipeline/requirements-gemini.txt` plus numpy and pillow. It needs `GEMINI_API_KEY`; without it, it uses the fallback.
+- **Run:** `python pipeline/s7_identity.py --work work/<id> [--force]`. It skips if `S7/identity.json` exists.
+- **Inputs:** `S0/frames`, `S2/tracks.json` (only instances with `label == "person"`), and `S2/masks/o<id>/`.
+- **Method:**
+  - Split each person's visible frames into 8 time bins and take the frame with the largest mask from each bin. Frames where the mask touches the image edge (cut off) are skipped unless a bin has nothing else.
+  - Each candidate is cropped to that person's padded mask box, and **every pixel outside their own mask is set to white**. That's how a bystander's face is never picked (Orbis PR #53).
+  - Gemini (`config/gemini.yaml` model) ranks the crops for front-facing, face visible, full body, unoccluded and sharp.
+  - If Gemini fails or gives an invalid ranking, the fallback (PRD §7.3) ranks by mask area.
+- **Outputs:**
+  - `S7/identity/<id>/cand_<frame>.png`: all candidate crops, kept for review.
+  - `S7/identity/<id>/best.png`: the top-ranked crop.
+  - `S7/identity.json`: `{persons: [{id, frame, ranked: [{frame, crop}], source: "gemini"|"fallback", reason}]}`. `ranked` is best first, and `crop` paths are relative to `S7/`. A-06 uses `best.png`, or the top few for LHM++.
