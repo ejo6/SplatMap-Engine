@@ -17,8 +17,8 @@ OWN-WORLD: Daylight alpine. Moraine Lake at 6AM photograph (Unsplash, Redd Franc
 
 STORY: In one viewport the judge reads the one-liner, sees the reflection ripple under the pointer, and pastes a link on the waterline. Scrolling: the worlds gallery, how it works as a three-waypoint trail, the fog principle (we never invent what wasn't filmed), the extension, credits.
 
-FIRST VIEWPORT: Full-bleed photo; headline "Every video is a window." huge in the sky, upper left; the link field sits exactly on the lake's waterline; "We turn it into a door." below it over the reflection; slim header in the sky; photo credit bottom right.
+FIRST VIEWPORT: Full-bleed photo; headline "Every video is a window." huge in the sky, centred on the mirror axis in two lines (upper left put it over the cliff face, which failed legibility); the link field sits exactly on the lake's waterline; "We turn it into a door." below it over the reflection; slim header in the sky; photo credit bottom right.
 
-FORM: Pinned by the user, so no roll position. seed: none (pinned) "I would like something very bright and nature oriented … this is the angle we want to go with" plus the confirmed waterline concept. Signature interaction: the pointer ripples the reflection; a valid link projects that video's thumbnail onto the water, and submit rises through the waterline into the peaks.
+FORM: Pinned by the user, so no roll position. seed: none (pinned) "I would like something very bright and nature oriented … this is the angle we want to go with" plus the confirmed concept, quoted: "the lake's reflection stands for the flat video, the land above the waterline is the world; the link field sits on the waterline; pasting a link makes the reflection ripple and the page rises through the waterline into the world". Signature interaction: the pointer ripples the reflection; a valid link projects that video's thumbnail onto the water, and submit rises through the waterline into the peaks.
 
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance

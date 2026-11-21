@@ -56,9 +56,13 @@ app.innerHTML = `
 
   <section class="band how" id="how" aria-labelledby="how-title">
     <h2 id="how-title">From watching to walking</h2>
-    <svg class="ridge" viewBox="0 0 1200 120" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-      <path d="M0 96 L120 70 L210 84 L330 30 L420 58 L520 40 L600 12 L700 46 L790 34 L900 66 L1010 22 L1100 54 L1200 40" />
-    </svg>
+    <div class="ridge" aria-hidden="true">
+      <svg viewBox="0 0 1200 120" preserveAspectRatio="none" focusable="false">
+        <path d="M0 96 L110 74 L200 82 L320 40 L420 62 L520 44 L600 16 L700 50 L800 36 L900 70 L1000 30 L1100 56 L1200 44" />
+      </svg>
+      <!-- Waypoints sit on the path's vertices at each step's column centre (x 200 / 600 / 1000 of 1200). -->
+      <i style="left:16.667%;--y:.6833"></i><i style="left:50%;--y:.1333"></i><i style="left:83.333%;--y:.25"></i>
+    </div>
     <ol class="trail">
       <li><h3>Find a video</h3><p>Click <strong>Step inside</strong> next to Like on YouTube, or paste the link on the lake above.</p></li>
       <li><h3>We rebuild what the camera saw</h3><p>Camera paths and depth become a splat world you can walk through. The people in it become avatars you can circle, blended with their real pixels.</p></li>
@@ -79,7 +83,11 @@ app.innerHTML = `
       <h2 id="ext-title">Step inside from YouTube</h2>
       <p class="lede">The Chrome extension puts a button next to Like on every video.</p>
     </div>
-    <div class="ext-demo" aria-hidden="true"><span class="pill">Step inside</span></div>
+    <div class="ext-demo" aria-hidden="true">
+      <span class="chip"><svg viewBox="0 0 24 24"><path d="M7 21H4V10h3m0 11h10.2a2 2 0 0 0 2-1.6l1.3-6.6A2 2 0 0 0 18.5 10H14l.8-4.2a1.6 1.6 0 0 0-2.9-1.2L7 10" /></svg>Like</span>
+      <span class="chip"><svg viewBox="0 0 24 24"><path d="M14 5l7 7-7 7M21 12H10a7 7 0 0 0-7 7" /></svg>Share</span>
+      <span class="pill">Step inside</span>
+    </div>
     <ol class="steps">
       <li>Open <code>chrome://extensions</code> and turn on <strong>Developer mode</strong>.</li>
       <li>Choose <strong>Load unpacked</strong> and select the project&rsquo;s <code>extension/</code> folder.</li>
@@ -181,7 +189,19 @@ async function loadGallery() {
       card.append(img, title, credit);
       gallery.append(card);
     }
-    if (!gallery.childElementCount) say('The first two worlds are still being built from their videos. They’ll appear here the moment you can walk into them.');
+    if (!gallery.childElementCount) {
+      // Two mist-filled slots for the two demo worlds still being baked (docs/clips.md), then the honest note.
+      const slots = [1, 2].map(() => {
+        const slot = document.createElement('div');
+        slot.className = 'slot';
+        slot.setAttribute('aria-hidden', 'true');
+        return slot;
+      });
+      const note = document.createElement('p');
+      note.className = 'slot-note';
+      note.textContent = 'The first two worlds are still being built from their videos. They’ll appear here the moment you can walk into them.';
+      gallery.replaceChildren(...slots, note);
+    }
   } catch {
     say('The worlds couldn’t load. Refresh the page to try again.');
   }
