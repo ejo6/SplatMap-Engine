@@ -1,0 +1,12 @@
+# S8: Video Depth Anything for the people layer (KAN-43). Pins follow the repo's requirements.txt
+name: depth
+channels: [conda-forge]
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - --extra-index-url https://download.pytorch.org/whl/cu121
+      - torch==2.1.1+cu121
+      - torchvision==0.16.1+cu121
+      - -r /workspace/src/Video-Depth-Anything/requirements.txt
+      - setuptools==69.5.1   # imageio-ffmpeg 0.4.7 imports pkg_resources

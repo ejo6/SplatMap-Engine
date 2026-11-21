@@ -1,0 +1,17 @@
+# S3/S3b/S4/S5: Depth Anything 3 (+ Pi3X fallback), gsplat training, bounds (KAN-26..35)
+# After create: pip install -e /workspace/src/Depth-Anything-3 and -e /workspace/src/Pi3 (see setup_gpu.sh)
+name: recon
+channels: [nvidia/label/cuda-12.4.1, conda-forge]
+dependencies:
+  - python=3.11
+  - pip
+  - cuda-toolkit=12.4   # nvcc for gsplat's JIT CUDA build
+  - pip:
+      - --extra-index-url https://download.pytorch.org/whl/cu124
+      - torch==2.5.1
+      - torchvision==0.20.1
+      - xformers==0.0.28.post3
+      - numpy==1.26.4
+      - plyfile
+      - open3d==0.19.0
+      - viser

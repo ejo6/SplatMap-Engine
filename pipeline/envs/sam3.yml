@@ -1,0 +1,16 @@
+# S2: SAM 3 video masks + tracks (KAN-36). Weights: facebook/sam3 (gated, needs HF_TOKEN)
+# After create: pip install -e /workspace/src/sam3
+name: sam3
+channels: [conda-forge]
+dependencies:
+  - python=3.12
+  - pip
+  - pip:
+      - --extra-index-url https://download.pytorch.org/whl/cu126
+      - torch==2.7.1
+      - torchvision==0.22.1
+      - opencv-python
+      - einops
+      - pycocotools
+      - decord==0.6.0
+      - psutil
