@@ -3,6 +3,7 @@ import { SparkRenderer, SplatMesh } from '@sparkjsdev/spark';
 import { MasterClock, unmuteOnFirstGesture } from './clock';
 import { CameraRig, poseAt, type CamerasFile } from './camera';
 import { VideoOverlay } from './overlay';
+import { createTransportUI, type ThumbsSprite } from './transport';
 import './style.css';
 
 // SH-01: viewer scaffold + world loader (PRD §7.4, §8, §10.8, FR-05)
@@ -16,7 +17,7 @@ function setStatus(text: string) {
 }
 
 interface Manifest {
-  video: { url: string; fps: number };
+  video: { url: string; fps: number; thumbs: { sprite: string; index: string } };
   shots: {
     id: string;
     start: number;
@@ -74,11 +75,12 @@ async function loadWorld(manifest: Manifest, base: string) {
   scene.add(world);
 
   // SH-03: camera modes - ride-along, walk, return (PRD §10.2, FR-16-18)
-  const [cameras, walk] = await Promise.all([
+  const [cameras, walk, thumbs] = await Promise.all([
     fetch(base + shot.cameras).then((r) => r.json() as Promise<CamerasFile>),
     shot.bounds?.walk
       ? fetch(base + shot.bounds.walk).then((r) => r.json() as Promise<{ eyeHeight: number }>)
       : Promise.resolve(undefined),
+    fetch(base + manifest.video.thumbs.index).then((r) => r.json() as Promise<ThumbsSprite>),
   ]);
   const rig = new CameraRig(renderer.domElement, innerWidth / innerHeight, cameras, walk?.eyeHeight ?? DEFAULT_EYE_HEIGHT);
 
@@ -105,6 +107,10 @@ async function loadWorld(manifest: Manifest, base: string) {
     overlay.setFrame(poseAt(cameras, state.frame));
   });
   void video.play();
+
+  // SH-05: transport UI (PRD §10.7, FR-19)
+  const shotStarts = manifest.shots.map((s) => s.start);
+  app.appendChild(createTransportUI(video, base, thumbs, shotStarts));
 
   const timer = new THREE.Timer();
   timer.connect(document);
