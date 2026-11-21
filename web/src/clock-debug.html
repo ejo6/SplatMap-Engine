@@ -4,16 +4,68 @@
     <meta charset="UTF-8" />
     <title>Clock debug</title>
     <style>
-      body { margin: 0; background: #111; color: #ddd; font: 13px system-ui; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
-      video { width: 480px; max-width: 100%; background: #000; }
-      #hud { white-space: pre; }
+      :root { color-scheme: dark; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: #111;
+        color: #ddd;
+        font: 14px/1.4 system-ui, sans-serif;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      h1 { font-size: 14px; font-weight: 600; margin: 0; color: #888; }
+      h1 code { color: #ddd; }
+
+      #hud {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        font: 13px/1 ui-monospace, 'SF Mono', Menlo, monospace;
+      }
+      .stat {
+        background: #1c1c1c;
+        border: 1px solid #2a2a2a;
+        border-radius: 6px;
+        padding: 6px 10px;
+        display: flex;
+        gap: 6px;
+        align-items: baseline;
+      }
+      .stat .label { color: #777; }
+      .stat .value { color: #eee; }
+      .stat.drift .value { font-weight: 600; }
+      .stat.drift.ok .value { color: #4ade80; }
+      .stat.drift.warn .value { color: #facc15; }
+      .stat.drift.bad .value { color: #f87171; }
+
+      .videos { display: flex; gap: 16px; flex-wrap: wrap; }
+      figure { margin: 0; display: flex; flex-direction: column; gap: 8px; }
+      figcaption { font-size: 12px; color: #888; }
+      figcaption .hint { color: #555; }
+      video { width: 420px; max-width: 100%; background: #000; border-radius: 6px; display: block; }
     </style>
   </head>
   <body>
-    <div id="hud">Loading…</div>
-    <div>
-      <label>master <video id="master" controls muted></video></label>
-      <label>holo (slaved) <video id="holo"></video></label>
+    <h1>SH-02 clock debug &mdash; <code>?world=test</code></h1>
+    <div id="hud">
+      <div class="stat"><span class="label">t</span><span class="value" data-field="t">&ndash;</span></div>
+      <div class="stat"><span class="label">frame</span><span class="value" data-field="frame">&ndash;</span></div>
+      <div class="stat"><span class="label">shot</span><span class="value" data-field="shot">&ndash;</span></div>
+      <div class="stat"><span class="label">playing</span><span class="value" data-field="playing">&ndash;</span></div>
+      <div class="stat drift" id="drift-stat"><span class="label">holo drift</span><span class="value" data-field="drift">&ndash;</span></div>
+    </div>
+    <div class="videos">
+      <figure>
+        <video id="master" controls muted></video>
+        <figcaption>master (video.mp4) <span class="hint">&mdash; drag the seek bar to test repeated seeks</span></figcaption>
+      </figure>
+      <figure>
+        <video id="holo"></video>
+        <figcaption>holo (slaved) <span class="hint">&mdash; should track the master within 1 frame</span></figcaption>
+      </figure>
     </div>
     <script type="module" src="./clock-debug.ts"></script>
   </body>
