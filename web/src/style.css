@@ -16,3 +16,92 @@ html, body, #app {
 #app canvas {
   display: block;
 }
+
+/* SH-05: transport UI (PRD §10.7, FR-19) */
+.transport {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.75), transparent);
+  font: 13px system-ui, sans-serif;
+  color: #eee;
+}
+
+.transport-play {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+}
+
+.transport-time {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.transport-bar {
+  position: relative;
+  flex: 1;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.transport-progress {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: #e33;
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.transport-scrubber {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  background: #e33;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.transport-tick {
+  position: absolute;
+  top: -2px;
+  width: 2px;
+  height: 8px;
+  background: #fff;
+  pointer-events: none;
+}
+
+.transport-preview {
+  position: absolute;
+  bottom: 36px;
+  transform: translateX(-50%);
+  background-repeat: no-repeat;
+  border: 2px solid #fff;
+  border-radius: 2px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+.transport-preview-time {
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.75);
+  padding: 1px 4px;
+  border-radius: 2px;
+  font-size: 11px;
+}
