@@ -1,14 +1,10 @@
-# Demo clip shortlist
+# Demo clips
 
-These sources are leads for KAN-69. Select an exact 30–60 second window for each qualifying clip and have Eric review the camera motion before baking. A source's license record does not establish that a particular window meets the shot criteria.
+Kevin will hand-select two clips. Record the source, exact playback window, creator credit, and reuse rights once each clip is chosen.
 
-| Category | Source and creator credit | Rights evidence | Window to look for |
-|---|---|---|---|
-| Vlog | [Madeira, Garganta Funda & Funchal](https://www.youtube.com/watch?v=y9x90Yz7dxo) by World Wanderista | [CC BY 3.0, reviewed by Wikimedia's YouTubeReviewBot](https://commons.wikimedia.org/wiki/File:Madeira-_Garganta_Funda_%26_Funchal_-_Vlog_7_-_World_Wanderista.webm) | A daylight walking segment with the host in frame. Skip edits, cliffside water views, and static selfie shots. |
-| Vlog | [Day on a farm in Slovenia](https://www.youtube.com/watch?v=w_ejHCUVQoE) by Peaceful Camp Vlog | [Commons lists CC BY 3.0 and flags license review as pending](https://commons.wikimedia.org/wiki/File:Day_on_a_farm_in_SLOVENIA._Slow_Life_%26_Happy_Animals._ASMR_sound%2C_couple_car_camping_%26_hill_hiking.webm). Verify on the source before use. | The hill hike, with one or two people visible. Check for cuts between the farm and hiking footage. |
-| Nature | [Kodaikanal forest walk](https://commons.wikimedia.org/wiki/File:Wandering_through_the_greenish_forest,_I_follow_an_unknown_path_where_every_leaf_hides_a_secret_and_every_step_feels_like_discovery.webm) by Mathanprasath K | CC BY 4.0 on the creator's Commons upload | Source runs 1:00. Check the full take for motion and people. Portrait footage and a Commons-only source make this a backup rather than a ready YouTube demo clip. |
-| Park | [Walking through a park in Taicang](https://www.youtube.com/watch?v=1OwYcvhEI48) by Walking China | [Commons lists CC BY 3.0 and flags license review as pending](https://commons.wikimedia.org/wiki/File:Walking_China_-_Walking_Through_a_Beautiful_and_Scenery_Park_In_China_(4K).webm). Verify on the source before use. | A path curving past solid, textured landmarks. Skip water, crowds, and sections with no visible people. |
-| Street | [Walking in Delft](https://www.youtube.com/watch?v=nK25LmMk_Wk) by POPtravel | [CC BY 3.0, reviewed by Wikimedia's YouTubeReviewBot](https://commons.wikimedia.org/wiki/File:Walking_in_DELFT_-_Netherlands_-_4K_60fps_(UHD).webm) | A quiet side street with a turn or lateral walk past textured storefronts. Skip canal views and reflective windows. |
-| Street | [Walking in Uppsala](https://www.youtube.com/watch?v=aVh_jTIP2cE) by POPtravel | [CC BY 3.0 recorded on Commons](https://commons.wikimedia.org/wiki/File:Walking_in_UPPSALA_-_Sweden_-_4K_60fps_(UHD).webm) | A quiet street or university approach with a turn. Check lighting and pedestrian count. |
+| Demo clip | What to look for | Selection |
+|---|---|---|
+| Walking vlog | One or two people, each visible from the front at least once. Keep them small in frame. Walk past a textured background while the people move. This clip shows the people layer and synchronized playback. | Pending |
+| Quiet park walk | A wide path with a gentle curve and textured landmarks at different distances. Keep pedestrian movement limited and meet the PRD’s people criteria. This clip shows free walking, the boundary, and fog. Bake it first to check camera and splat alignment. | Pending |
 
-For each accepted window record the exact start and end, source resolution, number of people visible, camera motion, creator credit, and evidence for the license. Check for one continuous shot, 720p or better, a translated or orbiting camera, a mostly static background, and one to three people with front-facing moments. Include the source and license in the gallery credit and identify the reconstruction as an adaptation.
+Both clips should be 30–60 seconds, continuous, at least 720p, and shot in daylight. Look for camera translation with a slight turn and a mostly static background. Use team footage, CC BY footage, or written creator permission. Eric reviews the selected windows for reconstruction.
