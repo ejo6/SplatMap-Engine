@@ -5,8 +5,12 @@ This is a **36-hour hackathon** project. The goal is a **working MVP**, not a po
 
 The product requirements live in the **PRD** — refer to it before starting any task and when in doubt about scope. If a task isn't supported by the PRD, check with the user before building it.
 
-<!-- TODO: add link/path to PRD here -->
-PRD: _<link or path>_
+PRD: [docs/prd.md](docs/prd.md). Read it before every task and follow its §16 (agent working rules + repo layout). Ticket briefs and setup guide: [docs/JIRA.md](docs/JIRA.md).
+
+## Repo layout (PRD §16)
+- `extension/` MV3 extension · `web/` Vite + TS + three.js + Spark (people code in `web/src/people/`) · `server/` FastAPI + GPU worker · `pipeline/` stage scripts `s0_ingest.py`…`s9_package.py`, runner `run.py`, conda specs `envs/*.yml` · `config/` `gemini.yaml`, pipeline defaults · `docs/` world format, GPU setup/ledger, clips, demo worlds.
+- `work/` and `worlds/` (repo root) are git-ignored pipeline output. Never commit `.env`, keys, cookies, model weights or SMPL/SMPL-X files.
+- Copy `.env.example` to `.env` and fill only the keys your area needs.
 
 ## Project Management (Jira)
 - Use the **Jira MCP** for all project management. Jira is the source of truth for what needs doing.
