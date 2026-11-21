@@ -24,7 +24,9 @@ interface Manifest {
     id: string;
     start: number;
     frameCount: number;
-    world: { rad?: string; spz?: string };
+    // `rotation` (degrees, XYZ) fixes up-axis mismatches on assets not produced by our own
+    // pipeline (E-03 already normalizes our captures to +Y up; third-party ones may not be).
+    world: { rad?: string; spz?: string; rotation?: [number, number, number] };
     cameras: string;
     bounds?: { walk?: string };
   }[];
@@ -46,13 +48,17 @@ async function resolveManifest(youtubeId: string): Promise<{ manifest: Manifest;
   return null;
 }
 
-// Default LoD budget is 1.5M splats, 2.5M on a discrete GPU (PRD §10.8), detected
-// from the WebGL renderer string.
-function lodBudget(): number {
+// Detects a discrete GPU from the WebGL renderer string, used to scale both the splat
+// budget and the DPR cap (PRD §10.8) - M1/M2 Macs (the PRD §3 baseline) fall in the
+// integrated bucket, which is where a heavier scene is most likely to feel laggy.
+function hasDiscreteGPU(): boolean {
   const gl = document.createElement('canvas').getContext('webgl2');
   const info = gl?.getExtension('WEBGL_debug_renderer_info');
   const renderer = (info && gl!.getParameter(info.UNMASKED_RENDERER_WEBGL)) || '';
-  const discrete = /nvidia|amd|radeon/i.test(renderer) && !/apple|intel/i.test(renderer);
+  return /nvidia|amd|radeon/i.test(renderer) && !/apple|intel/i.test(renderer);
+}
+
+function lodBudget(discrete: boolean): number {
   return discrete ? 2_500_000 : 1_500_000;
 }
 
@@ -64,16 +70,20 @@ async function loadWorld(manifest: Manifest, base: string) {
     return;
   }
 
+  // Antialiasing costs real fill-rate on heavily alpha-blended splats for little visible
+  // gain (splats are already soft-edged), so it's off rather than the three.js default.
+  const discreteGPU = hasDiscreteGPU();
   const scene = new THREE.Scene();
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); // NFR DPR cap, PRD §10.8
+  const renderer = new THREE.WebGLRenderer({ antialias: false });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, discreteGPU ? 1.5 : 1)); // NFR DPR cap, PRD §10.8
   renderer.setSize(innerWidth, innerHeight);
   app.replaceChildren(renderer.domElement);
 
   const spark = new SparkRenderer({ renderer });
   scene.add(spark);
 
-  const world = new SplatMesh({ url: base + worldPath, maxSplats: lodBudget() });
+  const world = new SplatMesh({ url: base + worldPath, maxSplats: lodBudget(discreteGPU) });
+  if (shot.world.rotation) world.rotation.set(...(shot.world.rotation.map(THREE.MathUtils.degToRad) as [number, number, number]));
   scene.add(world);
 
   // SH-03: camera modes - ride-along, walk, return (PRD §10.2, FR-16-18)
