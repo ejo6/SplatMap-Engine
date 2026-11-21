@@ -1,0 +1,1 @@
+{"eyeHeight":1.6,"startFrame":0,"fog":{"color":[0.05,0.05,0.08],"radius":4},"sdf":{"url":"walk_sdf.bin","origin":[-5,-5],"cellSize":0.1,"width":100,"height":100},"coverage":{"url":"coverage.bin","origin":[-5,-1,-5],"cellSize":0.2,"dims":[50,20,50]}}

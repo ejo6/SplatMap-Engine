@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "pipelineVersion": "1",
+  "youtubeId": "test",
+  "title": "Hand-made test world (gate G1)",
+  "credit": {
+    "creator": "Hack Western 13 team",
+    "license": "N/A - synthetic test fixture",
+    "url": ""
+  },
+  "sceneCard": "A synthetic scene for testing the viewer before the real pipeline exists: a camera glides sideways past a small red sphere on a tan floor.",
+  "video": {
+    "url": "video.mp4",
+    "fps": 30,
+    "width": 1280,
+    "height": 720,
+    "duration": 10,
+    "sourceStart": 0,
+    "thumbs": {
+      "sprite": "thumbs.jpg",
+      "index": "thumbs.json"
+    }
+  },
+  "shots": [
+    {
+      "id": "s0",
+      "start": 0,
+      "end": 10,
+      "frameCount": 300,
+      "world": {
+        "spz": "s0/world.spz",
+        "splatCount": 1908
+      },
+      "cameras": "s0/cameras.json",
+      "bounds": {
+        "walk": "s0/walk.json",
+        "colliders": "s0/colliders.glb"
+      },
+      "peopleLayer": {
+        "video": "s0/holo.mp4",
+        "meta": "s0/holo.json"
+      },
+      "people": []
+    }
+  ],
+  "unreconstructed": [],
+  "qa": {
+    "verdict": "unchecked",
+    "notes": "Hand-made fixture; no Gemini QA run.",
+    "fogRadius": 4
+  },
+  "createdAt": "2026-11-21T18:03:39.716Z"
+}
