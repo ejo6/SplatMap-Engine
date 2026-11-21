@@ -112,5 +112,5 @@ Volume use after setup: about 50 GB of 187 GB.
 - **`chumpy`** (used by GVHMR and LHM) only builds with `pip install --no-build-isolation chumpy==0.70`, because its setup.py imports pip.
 - **GVHMR checkpoints:** Google Drive blocks scripted downloads, so they come from the HF mirror `camenduru/GVHMR` (same files and sizes as the official Drive folder).
 - **`pkg_resources`:** Video Depth Anything's `imageio-ffmpeg 0.4.7` and SAM 3's `model_builder.py` both import it, so `depth` and `sam3` pin `setuptools==69.5.1`. Also set `IMAGEIO_FFMPEG_EXE=/usr/bin/ffmpeg`.
-- **DA3** processes at 504 px by default. For E-02, raise the processing resolution to the planned 1280–1600 px long edge.
+- **DA3 memory:** the nested giant model runs out of memory at 1288 px even with 65 keyframes on the A40. At 504 px it needs 15 GB for 65 keyframes and 41.6 GB for 390, so S3 solves at 504 px (see `recon-pipeline.md`).
 - **GVHMR and LHM can't share an env** (GVHMR needs `timm 0.9.12`, LHM needs `timm 1.0.15`), so they are `people` and `lhm`.
