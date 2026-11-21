@@ -85,3 +85,17 @@ Stages S2, S6, S7 and S8 from PRD §7.2. Each reads and writes `work/<youtubeId>
   - SMPL-X parameters: `betas` (10, the median over the span, so one shape per person), `incam_{global_orient (F,3), body_pose (F,63), transl (F,3)}` (camera space, OpenCV axes; `transl` has a 5-frame moving average), `global_{global_orient, body_pose, transl}` (GVHMR's gravity-aligned world).
   - `cam_source`: `"cameras.json"` or `"simplevo"`.
   - A-04 places people with `incam_*` + `cameras.json` + the floor. The `global_*` parameters are kept for reference.
+
+## S6b world placement: `pipeline/s6_place.py` (A-04)
+
+- **Env:** `people`. It uses the `smplx` package with the SMPL-X files GVHMR uses (`--smplx-dir` or `$SMPLX_DIR`, default `/data/src/GVHMR/inputs/checkpoints/body_models`). The model settings match GVHMR's "supermotion": neutral, 10 betas, non-flat mean hands.
+- **Run:** `python pipeline/s6_place.py --work work/<id> [--force]`. It needs `S6/body/*.npz` (A-03) and `S3/cameras.json` (E-03).
+- **Method, per person:**
+  1. **Skinning:** SMPL-X rest-to-posed joint transforms `A` for every frame, from GVHMR's in-camera pose.
+  2. **Into the world:** `world = c2w · diag(1,−1,−1,1) · S(scale) · T(transl) · A`. The diagonal converts OpenCV camera axes to three.js.
+  3. **Scale:** one per person, solved so the lowest foot lands on y = 0. It's the median over frames, so jumps don't break it. Scaling happens about the camera centre, which keeps the body's image projection (it still overlays its mask) while fixing GVHMR's size and distance against the world's metres. `heightM` in `person.json` is the sanity check.
+  4. **Foot pinning:** frames where a foot is within 10 cm of the floor get a smoothed vertical shift onto it. Horizontal foot sliding is **not** locked yet.
+- **Outputs (PRD §8.4):**
+  - `S6/people/p<k>/motion.bin`: float32 little-endian, shape `(frameCount, 55, 3, 4)`, row-major, indexed by **shot frame**. Frames outside the person's span repeat the edge pose; they're hidden via `visible`. `motion[f][j]` maps a point in the person's **rest space** (their shaped SMPL-X T-pose, metres, **unscaled**) to world, so linear-blend skinning is `Σ w_j · motion[f][j] · [p_rest, 1]`.
+  - `S6/people/p<k>/person.json`: `{id, label, avatar: null, joints: 55, skeleton: "smplx55", parents, restJoints, motion: {url, frameCount, layout}, visible, sourceInstance, scale, heightM}`. `p<k>` follows the sorted `S6/body` files. `avatar` is filled in later by S7/S9a.
+- **For A-06/A-07:** the avatar must live in the same rest space (this person's betas, unscaled SMPL-X T-pose) with SMPL-X joint order, so skin weights index these 55 joints directly.
