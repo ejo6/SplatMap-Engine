@@ -1,0 +1,12 @@
+# S0/S1: download, shot detection, Gemini client (KAN-22..25)
+name: ingest
+channels: [conda-forge]
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - yt-dlp
+      - bgutil-ytdlp-pot-provider
+      - scenedetect[opencv]
+      - google-genai
+      - boto3

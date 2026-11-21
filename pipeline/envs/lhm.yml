@@ -1,0 +1,14 @@
+# S7: LHM avatars (KAN-41). Split from `people` because LHM pins timm 1.0 and GVHMR pins timm 0.9.
+# cuda-toolkit is needed to compile diff-gaussian-rasterization / simple-knn (see setup_gpu.sh)
+name: lhm
+channels: [nvidia/label/cuda-12.1.1, conda-forge]
+dependencies:
+  - python=3.10
+  - pip
+  - cuda-toolkit=12.1
+  - pip:
+      - --extra-index-url https://download.pytorch.org/whl/cu121
+      - torch==2.3.0+cu121
+      - torchvision==0.18.0+cu121
+      - xformers==0.0.26.post1
+      - https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py310_cu121_pyt230/pytorch3d-0.7.6-cp310-cp310-linux_x86_64.whl

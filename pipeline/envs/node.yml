@@ -1,0 +1,5 @@
+# S9: Spark LoD build (world.rad) (KAN-33)
+name: node
+channels: [conda-forge]
+dependencies:
+  - nodejs=20

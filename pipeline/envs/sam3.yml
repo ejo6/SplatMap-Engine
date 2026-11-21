@@ -1,17 +1,16 @@
-# S2 masks (pipeline/s2_masks.py). SAM 3 via Hugging Face transformers; needs HF_TOKEN with facebook/sam3 access.
-# conda env create -f pipeline/envs/sam3.yml
+# S2: SAM 3 video masks + tracks (KAN-36). Weights: facebook/sam3 (gated, needs HF_TOKEN)
+# After create: pip install -e /workspace/src/sam3
 name: sam3
 channels: [conda-forge]
 dependencies:
   - python=3.12
   - pip
   - pip:
-      - --extra-index-url https://download.pytorch.org/whl/cu128
-      - torch==2.10.0
-      - torchvision==0.25.0  # required by Sam3VideoProcessor
-      - transformers==5.24.0
-      - kernels==0.18.3  # without it SAM 3 skips NMS (duplicate tracks), hole filling and sprinkle removal
-      - accelerate==1.13.0
-      - pillow==12.1.0
-      - numpy==2.3.5
-      - pytest==9.0.1
+      - --extra-index-url https://download.pytorch.org/whl/cu126
+      - torch==2.7.1
+      - torchvision==0.22.1
+      - opencv-python
+      - einops
+      - pycocotools
+      - decord==0.6.0
+      - psutil
