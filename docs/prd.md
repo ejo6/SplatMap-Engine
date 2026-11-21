@@ -1,312 +1,542 @@
-# Step Into the Video — Hackathon PRD
+# PRD: Step Into the Video (Hack Western 13)
 
-Nov 20, 2026
+Version 2.0, Nov 21, 2026. This replaces prd.md v1 (Nov 20).
 
-## Summary
+> **For agents:** read this file before every task. It is the source of truth for scope, decisions and the contracts between components. Tasks, status and day-to-day changes live in Jira (project `KAN`), not here. If the PRD and the Jira ticket don't answer something, stop and ask a human. To change a contract (§8, §9), open a PR that edits this file and tag the owners of every component that reads it.
 
-We turn a short adventure clip into a place you can walk around in while the original video plays inside it. The scene itself is a static 3D Gaussian splat built from the clip's frames. The video's own moment-by-moment content (the climbers, the host, the camera operator's path) is layered back into that space in sync with playback.
+---
 
-The key design choice: we do not try to reconstruct a moving 4D scene. The background is frozen and built once; motion comes from the video itself, placed in 3D at the exact spot and angle the camera filmed it from. That keeps the hard ML problem to one that open-source tools already solve well, and puts our effort into the experience.
+## 1. Product
 
-- **Category:** Adventure. Demo clips are summits, ridgelines, caves, canyons and big-stunt sets.
-- **Deliverable for Sunday:** a web viewer with 3 or 4 precomputed scenes, built Saturday night.
-- **Hardware:** team Macs (Apple Silicon) for app work and light ML; one rented NVIDIA GPU for the heavy steps.
-- **Event:** Hack Western, 36 hours. Desktop browser only (keyboard and mouse). Every clip we use is our own or openly licensed.
-- **Prior art:** friends shipped a very similar project (video → Marble room → LHM avatars → WebXR). We reuse their lessons and differentiate on **truth to the footage**: real recorded pixels for people instead of generated avatars, and a view that shows which parts of the room were filmed versus generated. See "Lessons from a similar project".
+**One-liner:** *Every video is a window. We turn it into a door.*
 
-## Goals, non-goals and success criteria
+On any YouTube watch page, a **Step inside** button sits next to Like. Clicking it opens a new tab where the video becomes a place. You walk around inside it and around the people in it while the original video and audio play. Everything the camera saw is solid world. Everything it never saw is fog, because we don't invent what wasn't filmed.
 
-The demo wins if a judge presses play, walks off the camera's path, and still feels like they are standing on the mountain while the climb happens.
+**Prize targets and pitch angles**
 
-**Goals**
+| Prize | Angle |
+|---|---|
+| Organizers' Choice: Most Adventurous ("enables others to discover the unknown"), **primary** | The fog is the unknown, made literal. Scrubbing the timeline pulls you back to exactly what the camera saw. |
+| 1st–3rd Overall (Innovation, Technical Complexity, Completeness, Design) | Shot detection, monocular reconstruction, Gaussian splatting, animated human avatars, a coverage-bounded world and a synchronized 4D web player, all built on open models. |
+| MLH Best Use of Gemini API | Gemini directs the pipeline: it picks shots, writes the segmentation prompts, chooses the avatar identity frame, quality-checks renders and writes the scene card (§7.3). |
+| MLH Best Use of Vultr | The GPU worker, object storage/CDN and API host run on Vultr. |
+| Canada Life Future Me (optional, P2) | A "Future Me" mode: walk inside a place you're saving toward, with a Gemini goal card. Only if the core is finished; the odds are low. |
 
-1. Reconstruct the place in a clip as a clean, explorable splat, with people removed from the static scene.
-2. Play the original video in sync inside that 3D scene, anchored to where the camera really was.
-3. Show the people in the video as depth "holograms" that move through the reconstructed space.
-4. Let the viewer walk freely, or ride along on the original camera path.
-5. Ship 3 or 4 polished adventure scenes that load in under 10 s in a desktop browser.
+**Engagement story:** creators get "step into my video." Viewers rewatch spatially. The cache is global, so each world is computed once and every later viewer costs one CDN read. A production version would be opt-in for creators.
+
+---
+
+## 2. Scope
+
+**Priorities.** P0 must ship for the demo. P1 is in scope and gets built once P0 works end to end. P2 is a stretch.
+
+**In scope**
+
+- Chrome MV3 extension with a button next to Like (P0).
+- Landing page where you paste a YouTube link, plus a gallery of demo worlds (P0).
+- Global world cache. No accounts (P0).
+- Offline GPU pipeline that turns a YouTube video into a world package (§8) (P0, run manually from the CLI).
+- Job API, GPU worker and progress screen so uncached videos get processed automatically (P1).
+- Viewer (P0):
+  - static splat world;
+  - original video and audio as the master clock;
+  - walk mode and ride-along mode;
+  - YouTube-style timeline whose scrubbing returns you to the original camera;
+  - fog over unseen space and a walk boundary;
+  - people as animated 3D avatars blended with real video pixels.
+- Scene cuts: one world per video from its longest usable shot (P0). One world per shot with a fog crossfade (P1).
+- Gemini director and quality gate (P0 director, P1 gate).
 
 **Non-goals**
 
-- Full 4D dynamic reconstruction of the moving scene.
-- VR, mobile or touch. The target is a desktop screen with keyboard and mouse.
-- Generative novel-view models (Stable Virtual Camera, GeoNVS, GEN3C, Lyra). Our friends tried all four: invented courtyards, grey mush, rewritten signs, scenes too slow to walk.
-- 3D reconstruction of people (V-DPM, PIFuHD, LHM avatars). Melted limbs or generated faces; depth holograms keep the real pixels.
-- Refining human poses against the footage. One camera can't recover hand depth; it made results worse for them.
-- Voice chat with characters or picking up objects.
-- Live, on-stage processing of a new video. A pipeline run is shown as a recording or a progress view.
-- Accounts, uploads, sharing or a backend beyond static file hosting.
-- Clips with hard cuts. Each scene comes from one continuous shot.
+- VR/WebXR, mobile, touch.
+- Accounts, login, MP4 upload, platforms other than YouTube.
+- Generative novel-view models (Stable Virtual Camera, GeoNVS, GEN3C, Lyra). Orbis tried all four and got invented courtyards, grey mush, gibberish signs and slow scenes.
+- Refining body poses against the footage. One camera can't recover limb depth, and it made Orbis's avatars worse.
+- Mesh-from-image humans (V-DPM, PIFuHD). They produce melted limbs.
+- Object labels, talking to characters, picking up objects.
+- Processing a new video live on stage. Judges only see pre-baked worlds.
 
-**Success criteria for Sunday**
+**Stretch (P2):** playback speed control, spatial audio, mini-map, the Marble or HY-World room-fill experiment, multi-shot location merging, Canada Life mode, and processing full-length videos beyond the 60 s window.
 
-| Criterion | Target |
-| --- | --- |
-| Scenes ready | 3 minimum, 4 stretch |
-| Viewer frame rate on a MacBook | 60 fps with video playing |
-| Sync between video and 3D camera path | Visually locked, no drift over the clip |
-| Free-roam range before splat breaks down | About 1 to 2 m off the camera path |
-| Pipeline per clip on a rented GPU | Under 45 min end to end |
-| Demo script length | 3 minutes, with a recorded fallback video |
+---
 
-## User experience
+## 3. Locked decisions
 
-The viewer opens on the scene paused at frame 0, with the original camera's path drawn as a faint line through the 3D space. Pressing play starts the video, its audio and every 3D layer on one shared clock.
+| Topic | Decision | Why |
+|---|---|---|
+| Accounts | None. Anonymous only. | Not needed. Avoids Auth0 work. |
+| Cache | Global, keyed by `{youtubeId, pipelineVersion}`. A cache hit opens instantly for anyone. | Compute once, serve from the CDN. |
+| People | **Hybrid** (§10.5). An LHM Gaussian avatar per tracked person, driven by per-frame body motion, plus a real-pixel "people layer" (masked RGB + depth). The view blends from real pixels near the original camera to the avatar off-axis. | A depth video alone has no back, so you can't walk around it. Avatars alone lose the real face. Orbis shipped avatars. |
+| Unseen space | **Fog by default.** No generated fill in the default path. | Fill means invention. Orbis rejected Marble outputs for invented fixtures and a warped bench. Fog matches the "discover the unknown" theme. |
+| Marble | **Not used in the default path.** Optional P2 experiment on one hero clip, capped at $5 (§11). | The API costs about $1.20 per world, but it invents content. API credits are separate from Marble app credits, and the app's free plan doesn't accept video. World Labs was just acquired by AMD, so the API's future is unclear. |
+| Scene cuts | P0: reconstruct only the **longest usable single shot**. P1: one world per shot, fog crossfade at each cut. | Ignoring cuts doesn't just look stagnant, it **corrupts** the result. The pose solver forces two places into one frame, giving ghost double-exposed geometry, a teleporting camera and a splat that matches neither shot. |
+| Video length | Any URL is accepted. The MVP processes a window of **60 s or less**. If the video is longer, Gemini picks the highlight window. Full length is P2. | Compute: about 45–80 GPU-min per 60 s (estimate). |
+| Scrubbing | When you grab the seek bar, the camera glides back to the original camera pose and follows the original path while you drag. On release, playback resumes in ride-along until you move (§10.3). | The original viewpoint is the one place where everything is guaranteed correct. |
+| Platform | Desktop Chrome, keyboard and mouse. An M1 MacBook Air is the minimum. The client only renders; all heavy compute is offline. | Judges' laptops. |
+| Demo clips | 30–60 s, single shot: scenery, nature, simple vlogs with 1–3 people. Only our own, CC-licensed or creator-permitted videos, credited on screen. | Quality, plus YouTube ToS (§12). |
+| Compute | Vultr GPU (A100 80 GB or L40S 48 GB) first, RunPod A100 as fallback. Macs for viewer work and light tests. | Vultr prize; we're willing to rent an A100. |
 
-**Three ways to watch, switchable with one key:**
+---
 
-1. **Ride along (default).** The viewer's camera follows the original camera path. The video frame fills the centre of the screen; turning your head past its edges reveals the reconstructed world around it. This is the money shot: the clip suddenly has a 360-degree surrounding.
-2. **Free roam.** WASD and mouse to walk anywhere. The video keeps playing as a floating screen at the exact position and angle it was filmed from, so you can watch the camera operator "walk" through the scene from the side.
-3. **Hologram.** The people in the clip are lifted out of each frame into 3D using per-frame depth. They move through the splat in sync with the video, and you can walk around them. Viewed side-on they look like thick cut-outs, which reads as a stylised hologram rather than a bug.
+## 4. User flows
 
-**Controls and touches**
+**4.1 From YouTube (primary)**
 
-- Timeline scrubber; clicking a point on the 3D camera path jumps to that moment.
-- "Snap back" button returns you to the camera path, plus a soft boundary that fades the view when you stray too far.
-- Spatial audio: the clip's sound plays from the camera's position in the scene (Web Audio panner).
-- Scene picker with 3 or 4 adventure scenes and a short title card each.
-- **Truth view (differentiator):** a toggle that tints every splat by how well the footage covers it: full colour where the camera actually saw it, desaturated blue where the room was filled in. Judges see exactly what is real.
-- Walk at eye height on the fitted floor instead of flying a free camera (borrowed from our friends; it feels far more like being there).
-- Desktop controls: click to capture the mouse (pointer lock), WASD to move, Space to play or pause, 1, 2 and 3 to switch modes, Esc to release the mouse.
+1. The user watches a video and clicks **Step inside** next to Like.
+2. A new tab opens `https://<site>/w/<youtubeId>?t=<currentTime>`.
+3. The viewer tries the cache (`manifest.json` on the CDN).
+   - **Hit:** the world loads and the user starts in ride-along at the start of the processed window.
+   - **Miss:** the viewer calls `POST /api/worlds` and shows the progress screen (stage, percentage, ETA, scene card, or a failure reason). When the job is done, the world loads automatically. (P1. In the P0 fallback the screen says "Not processed yet".)
 
-## Technical architecture
+**4.2 From the landing page:** paste a YouTube link to go to `/w/<youtubeId>` (same flow), or click a world in the demo gallery.
 
-The pipeline runs once per clip, offline, and writes four files that a static web viewer plays back. Depth Anything 3 is the hub: its poses train the splat, drive the camera track and place the holograms, so every layer shares one coordinate frame.
+**4.3 In the viewer**
+
+1. The world opens in ride-along: the camera follows the original path and the video plays framed inside its 3D surroundings.
+2. Click to capture the mouse. Moving the mouse or pressing WASD switches to walk mode at eye height, and the people become walk-around avatars.
+3. Walk toward the edge of what was filmed: the world dissolves into fog and movement softly slows and slides along the boundary.
+4. Grab the timeline: the camera glides back to the original camera and follows the video's own path while you drag. Release to keep playing in ride-along. Move to walk off again.
+5. Press **R** to return to the camera without seeking. Press **F** to toggle the fog (demo comparison).
+
+---
+
+## 5. Functional requirements
+
+Areas: EXT = extension, WEB = landing page, API, PIPE = pipeline, VIEW = viewer, PPL = people, GEM = Gemini.
+
+| ID | Requirement | Pri | Area |
+|---|---|---|---|
+| FR-01 | Extension injects a **Step inside** button next to the Like button on `youtube.com/watch` pages. It survives YouTube's single-page navigation (`yt-navigate-finish`, `MutationObserver`), is inserted at most once, and still finds Like when selectors change (fall back to the like button's `aria-label`). | P0 | EXT |
+| FR-02 | Clicking the button opens `/w/<youtubeId>?t=<currentTime>` in a new tab. No remote code (MV3 rule). | P0 | EXT |
+| FR-03 | The landing page accepts any YouTube URL format (watch, youtu.be, shorts) and routes to `/w/<youtubeId>`. Invalid input shows an inline error. | P0 | WEB |
+| FR-04 | The landing page shows a gallery of the demo worlds, each with a title, thumbnail and creator credit. | P0 | WEB |
+| FR-05 | The viewer resolves a world from the static CDN path `worlds/<youtubeId>/v<pipelineVersion>/manifest.json` with no API call (the cache-hit path). | P0 | VIEW |
+| FR-06 | `POST /api/worlds` dedupes on the cache key: it returns the ready manifest, the existing job, or a new queued job. | P1 | API |
+| FR-07 | A job reports `status`, `stage`, `pct`, `etaSeconds`, `sceneCard` and `error` (§9). The viewer shows them on a progress screen and opens the world when it's ready. | P1 | API/VIEW |
+| FR-08 | Every failure carries a readable reason from the enum in §9. | P1 | API |
+| FR-09 | The pipeline runs as an idempotent CLI. Each stage skips if its outputs already exist and are valid. Stages emit progress events. | P0 | PIPE |
+| FR-10 | The pipeline detects shot cuts. For P0 it selects the longest usable shot of 60 s or less. For videos over 60 s, Gemini picks the window. | P0 | PIPE/GEM |
+| FR-11 | The pipeline outputs a world package that matches §8 exactly. | P0 | PIPE |
+| FR-12 | The background splat excludes all masked movers from **both** the RGB and the depth losses. | P0 | PIPE |
+| FR-13 | Every tracked person gets an avatar, a per-frame motion track in world space with feet on the floor, and visible-frame ranges. | P0 | PPL |
+| FR-14 | Every masked mover (people, animals, vehicles) appears in the people layer video (real pixels plus depth). | P0 | PPL |
+| FR-15 | The `<video>` element is the master clock. The camera path, avatars and people layer are all within 1 frame of `video.currentTime`. | P0 | VIEW |
+| FR-16 | Ride-along mode: the camera follows the original pose per frame with the original FOV, and the video overlay is aligned with the world. | P0 | VIEW |
+| FR-17 | Walk mode: pointer lock, WASD, mouse look, Shift to run, eye height 1.6 m above the floor, colliders. | P0 | VIEW |
+| FR-18 | **R** returns to the original camera without seeking. Any movement input leaves ride-along. **C** toggles ride-along. | P0 | VIEW |
+| FR-19 | YouTube-style transport controls: seek bar with hover thumbnails, play/pause (Space and button), ±5 s (arrow keys), time display, loop at the end. | P0 | VIEW |
+| FR-20 | Scrubbing behaves as specified in §10.3. | P0 | VIEW |
+| FR-21 | Fog over low-coverage space, with no full-screen darkening and an **F** toggle (§10.4). | P0 | VIEW |
+| FR-22 | Walk boundary from the walk SDF: slow down in the margin, slide along the edge, never pass through it (§10.4). | P0 | VIEW |
+| FR-23 | People render as described in §10.5: avatars hold their last pose at loop or end, never interpolate across a seek, and cast contact shadows. | P0 | VIEW/PPL |
+| FR-24 | View-dependent blend between the people layer and the avatars. | P1 | VIEW/PPL |
+| FR-25 | When `t` is outside the reconstructed shot, show the video on a panel in fog (P0). Multi-shot worlds crossfade through fog at cuts (P1). | P0/P1 | VIEW |
+| FR-26 | HUD with a controls hint, scene title, Gemini scene card and **creator credit** (always visible in a corner). | P0 | VIEW |
+| FR-27 | The Gemini director produces `director.json`: shot labels (usable or not), the chosen window, prompts for every person, animal and vehicle, and the scene card. | P0 | GEM |
+| FR-28 | Gemini picks each person's identity frame (clearest front-facing, unoccluded view, cropped inside that person's mask). | P0 | GEM/PPL |
+| FR-29 | The Gemini quality gate compares 6–8 rendered views with the source frames and writes `qa` into the manifest (pass, warn or fail, plus notes, plus a suggested fog radius). | P1 | GEM |
+| FR-30 | Ghost line showing the original camera path in walk mode. | P1 | VIEW |
+| FR-31 | Extension shows a "ready" badge when the video is already cached. | P2 | EXT |
+| FR-32 | Playback speed (0.5×–2×), spatial audio, mini-map (**M**). | P2 | VIEW |
+
+---
+
+## 6. Non-functional requirements
+
+All of these are targets; measure them.
+
+| ID | Requirement |
+|---|---|
+| NFR-01 | Demo world: first interactive frame in 3 s or less, full detail in 10 s or less on venue Wi-Fi with a pre-warmed cache, and 1 s or less from the local bundle. |
+| NFR-02 | Frame rate with the video playing, fog on and up to 3 avatars: 45 fps or more on an M1/M2 Air at 1440×900, 30 fps or more on Intel/AMD integrated GPUs, 60 fps or more on discrete GPUs. |
+| NFR-03 | Sync: avatar, people layer and camera pose within 1 frame of the video's media time. No visible drift over 60 s. |
+| NFR-04 | Seeking: the overlay appears within 100 ms of starting a drag, and playback resumes within 500 ms of release. |
+| NFR-05 | World package of 100 MB or less per 60 s, streamed progressively. |
+| NFR-06 | Pipeline: 90 min or less per 60 s single-shot clip with 3 or fewer people on one A100/L40S. |
+| NFR-07 | Cost: $5 or less of GPU per 60 s world. Paid APIs cost $0 by default. |
+| NFR-08 | No secrets in git or in the extension bundle. The extension asks for only the permissions it needs. |
+
+---
+
+## 7. Architecture
+
+### 7.1 System
 
 ```mermaid
 flowchart LR
-  subgraph Offline["Offline on the rented GPU, about 30 to 45 min per clip"]
-    A["Clip to frames<br/>ffmpeg, cut check<br/>about 300 keyframes"]
-    B1["SAM 3<br/>people masks,<br/>tracked every frame"]
-    B2["Depth Anything 3<br/>camera poses, focal,<br/>per-frame depth"]
-    C1["gsplat<br/>static splat, people<br/>masked out (.spz)"]
-    C2["Camera track<br/>pose per video frame<br/>(cameras.json)"]
-    C3["Hologram video<br/>RGB + depth + mask<br/>in one .mp4"]
-    A --> B1
-    A --> B2
-    B1 --> C1
-    B1 --> C3
-    B2 --> C1
-    B2 --> C2
-    B2 --> C3
+  YT["YouTube watch page<br/>+ MV3 extension button"] -->|"new tab /w/:id"| WEB
+  LAND["Landing page<br/>paste link / gallery"] --> WEB
+  subgraph Vultr
+    WEB["Web app (Vite + three.js + Spark)<br/>static, CDN"]
+    CDN[("Object Storage + CDN<br/>worlds/:id/v:ver/")]
+    API["FastAPI + SQLite jobs (P1)"]
+    GPU["GPU worker: A100 / L40S<br/>pipeline runner"]
   end
-  subgraph Browser["In the browser"]
-    D["Spark viewer<br/>three.js scene<br/>video clock drives every layer<br/><br/>Ride along / Free roam / Hologram"]
-  end
-  C1 --> D
-  C2 --> D
-  C3 --> D
+  WEB -->|"GET manifest (cache hit)"| CDN
+  WEB -->|"POST /api/worlds (miss)"| API
+  GPU -->|"claim job / progress"| API
+  GPU -->|"upload world package"| CDN
+  GPU <-->|"director, identity, QA"| GEM["Gemini API"]
 ```
 
-Masks and DA3 output feed all three products; the viewer reads them and keeps them in sync off the video's own clock.
+### 7.2 Pipeline stages
 
-**Room fill (new, from our friends' V2).** A splat built only from footage looks right near the camera path and empty everywhere else: a forward-moving camera sees only about 41° to each side. We add one optional step between masks and training:
+These are for one 60 s, 720p, 30 fps single-shot clip with 3 or fewer people on one A100. All times are estimates; measure them on the first clip. Each stage reads and writes `work/<youtubeId>/<stage>/`.
 
-1. Inpaint the masked people out of the keyframes with LaMa.
-2. Send the cleaned keyframes to the Marble API to generate a complete splat room.
-3. Align the Marble splat to our DA3 camera frame (scale + rigid transform from a few matched points, or ICP against the DA3 point cloud).
-4. Use it as the starting point for gsplat and train against the real keyframes, so filmed areas get overwritten by what was recorded and only unseen areas stay generated.
-5. Store per-splat coverage (how many training cameras saw it) for the truth view.
+| Stage | What it does | Tools | Main outputs | Est. time | Owner |
+|---|---|---|---|---|---|
+| S0 Ingest | Download (window only), normalize to 1280×720 at 30 fps, playback encode with a short GOP, thumbnail sprite, extract frames | yt-dlp (+ Deno, PO-token plugin), ffmpeg | `source.mp4`, `video.mp4`, `frames/`, `thumbs.jpg/json` | 1–3 min | Kevin |
+| S1 Shots + Director | Cut detection, then Gemini labels shots, picks the window, lists people and movers, writes the scene card | PySceneDetect (content detector), Gemini | `shots.json`, `director.json` | 1–2 min | Kevin |
+| S2 Masks | Per-instance video masks and IDs from Gemini prompts (fallback prompt "person"). Union mask dilated 10–20 px. | SAM 3 | `masks/<instance>/`, `masks/union/`, `tracks.json` | 5–10 min | Adam |
+| S3 Cameras + Depth | Poses, intrinsics and depth on keyframes at 5 fps (about 300), then interpolate to every frame (slerp rotation, lerp position) | Depth Anything 3 (Pi3X fallback) | raw cameras, keyframe depth | 2–5 min | Eric |
+| S3b World frame | Fit the floor plane, then transform everything so the floor is y = 0, +Y is up, units are metres. Convert to three.js camera convention. | custom | `cameras.json`, `world_transform.json` | <1 min | Eric |
+| S4 Background | 3DGS training on keyframes, masked RGB + depth losses, about 30k steps | gsplat (Brush fallback), LaMa (P1, for holes behind people) | `world.ply` | 15–30 min | Eric |
+| S5 Bounds | Coverage voxels, walk SDF, colliders, fog colour | custom | `coverage.bin`, `walk_sdf.bin`, `walk.json`, `colliders.glb` | 1–2 min | Eric |
+| S6 Body tracking | Per-person body parameters per frame, matched one-to-one to SAM instances and smoothed, then placed in the world frame: scale from body height + floor, feet pinned | GVHMR or Multi-HMR (spike), SMPL-X | `people/<pid>/motion.bin`, `visible` | 5–10 min | Adam |
+| S7 Avatars | Gemini identity frame, then LHM avatar, exported in the format chosen in the rendering spike | LHM-500M/1B (LHM++ if multi-image helps) | `people/<pid>/avatar.*`, `skin.bin` | <1 min per person | Adam |
+| S8 People layer | Per-frame depth scaled to DA3, then pack RGB + inverse depth + mask | Video Depth Anything, ffmpeg | `holo.mp4`, `holo.json` | 1–2 min | Adam |
+| S9 Package + QA | Build LoD (.RAD + SPZ), write manifest, render QA views, run Gemini gate, upload | Spark LoD tool, Gemini | world package (§8) | 3–5 min | Eric (package), Kevin (QA) |
+| **Total** | | | | **about 45–80 min** | |
 
-Scenes where the footage already covers the space (a 360 sweep) skip this step.
+**Rules learned from Orbis**
 
-**Pipeline steps**
+- For long shots, use a single global pose solve if it fits in memory. Otherwise use overlapping chunks (20% or more overlap) aligned with a similarity transform on shared frames. Never stitch independent batches (Orbis PR #82).
+- Masks must be excluded from the depth loss as well as RGB (Orbis PR #80).
 
-1. **Ingest.** Trim the clip, reject it if PySceneDetect finds a cut, and keep every frame for playback. Pull keyframes at 3 to 5 fps for reconstruction, downscaled to about 1280 to 1600 px on the long edge.
-2. **Masks.** Run SAM 3 with prompts like "person", "climber", "backpack". Dilate masks by about 10 px so edges don't leak into the splat.
-3. **Geometry.** Run DA3 (Nested model) on the keyframes for poses, intrinsics and depth, and export COLMAP format. For hologram depth on every playback frame, run DA3 conditioned on those poses at lower resolution, or Video Depth Anything scaled to match.
-4. **Splat.** Train gsplat for 30k steps on the keyframes with masks, world-space normalisation off. Export PLY, compress to SPZ.
-5. **Camera track.** Interpolate keyframe poses to every video frame (slerp rotation, lerp position) and write cameras.json.
-6. **Hologram video.** Tile each frame's RGB, depth and person mask side by side into one 720p H.264 video.
-7. **Viewer.** Spark renders the splat. A three.js plane shows the video at the current camera pose. A grid mesh (about 256 by 144 vertices) is pushed out by the depth texture in a vertex shader, placed at the same pose, and clipped by the mask, which gives the hologram. A requestVideoFrameCallback loop updates all of it each frame.
+### 7.3 Gemini roles
 
-**Per-scene output (the contract between pipeline and viewer)**
+Use the latest Gemini Flash model with video input. Pin the exact model ID in `config/gemini.yaml` at setup and never hard-code it elsewhere. Every Gemini call returns **JSON validated against a schema**. On invalid output, retry once and then fall back to the non-Gemini default.
 
-| File | Contents |
-| --- | --- |
-| scene.spz | Static splat, people removed |
-| video.mp4 | Original clip with audio |
-| holo.mp4 | RGB, depth and mask tiles per frame |
-| cameras.json | fps, intrinsics, and a position and rotation per frame |
-| meta.json | Title, start pose, walkable bounds |
+| Role | Input | Output | Fallback |
+|---|---|---|---|
+| Director (P0) | Clip + `shots.json` | Usable shots, chosen window (start, end), list of people/animals/vehicles with timestamps → SAM prompts, scene card (title + 2 sentences) | Longest shot, prompt "person", title from YouTube |
+| Identity frame (P0) | Per-person candidate crops | Best frame index per person | Largest unoccluded mask area |
+| Quality gate (P1) | 6–8 renders (centre path + offsets) + matching source frames | `pass`/`warn`/`fail`, notes, suggested fog radius | Skip; manifest `qa.verdict = "unchecked"` |
+| Scale sanity (P2) | Frames with known-size objects | Expected scale range | None |
 
-Because the contract is fixed on Friday night, the viewer team can build against a hand-made test scene while the pipeline is still being debugged.
+### 7.4 Backend and hosting
 
-## Tooling
+- **Static:** the web app (landing + viewer) and world packages live on Vultr Object Storage behind its CDN. World URLs are immutable (versioned path), so they're served with long cache headers. CORS must allow the site origin.
+- **API (P1):** FastAPI with SQLite on a small Vultr CPU VM.
+- **Worker (P1):** a loop on the GPU box that polls the API (`/internal/*`, bearer token), runs the pipeline runner, streams progress and uploads the package. The GPU box is never exposed publicly.
+- **Demo:** worlds are also bundled in `web/public/worlds/` so the whole demo can run from localhost.
 
-Every piece we need exists as open-source code today; the main split is which ones need NVIDIA CUDA and which run on our Macs.
+---
 
-| Tool | Job in our pipeline | Runs on Apple Silicon? | License and notes |
-| --- | --- | --- | --- |
-| yt-dlp, ffmpeg, PySceneDetect | Get the clip, trim it, extract frames, reject shots with cuts | Yes | All demo clips are our own or openly licensed |
-| [Depth Anything 3](https://github.com/ByteDance-Seed/Depth-Anything-3) | **Core.** Camera pose and intrinsics for every frame, plus per-frame depth, all in one consistent world frame. Exports COLMAP format. DA3-Streaming handles longer clips | Yes, via MPS (slower). An [MPS-tuned fork](https://pypi.org/project/awesome-depth-anything-3/) exists | Code Apache 2.0; the best "Nested" model is [CC BY-NC 4.0](https://pypi.org/project/depth-anything-3/0.1.0/), which is fine for a hackathon |
-| [SAM 3](https://ai.meta.com/sam3/) | Masks and tracks every "person" (or "climber", "rope") across the clip from a text prompt | Effectively CUDA only; or [fal.ai's hosted API](https://fal.ai/models/fal-ai/sam-3/video) at about $0.31 per 1,000 frames | Meta model licence. Masks feed both training and holograms |
-| [gsplat](https://github.com/nerfstudio-project/gsplat) | Trains the static splat on the rented GPU | No (CUDA) | Apache 2.0. Supports masks in training |
-| [Brush](https://github.com/ArthurBrussee/brush) | Trains the splat on a Mac; also our quick-look tool | Yes (Metal via WebGPU) | Apache 2.0. Takes COLMAP input and a [masks folder or alpha images](https://radiancefields.com/brush-0-2-released) |
-| [Video Depth Anything](https://arxiv.org/abs/2501.12375) | Backup depth for holograms if DA3 depth flickers frame to frame | Small model is light enough for a Mac | Temporally stable depth for long videos |
-| [Pi3](https://github.com/yyfz/Pi3) (Pi3X) | First backup pose estimator; our friends shipped with it | No (CUDA) | Try if DA3 poses drift |
-| [LaMa](https://github.com/advimman/lama) | Inpaints the masked-out people before sending frames to Marble | Runs on CPU or MPS, slowly | Apache 2.0 |
-| [VGGT](https://github.com/facebookresearch/vggt), [MegaSaM](https://mega-sam.github.io) | Backup pose estimators. MegaSaM is built for handheld, dynamic, low-parallax clips | No (CUDA) | Use only if DA3 poses look wrong |
-| [Spark 2](https://sparkjs.dev) + three.js r180+ | The web viewer: splats and normal meshes in one scene, streamed level of detail | Yes, any browser | MIT. Video textures and hologram meshes are ordinary three.js objects |
-| [Marble API](https://docs.worldlabs.ai/api) | Generates the full room for the room-fill step; then corrected against real frames | Cloud API | About $1.20 per world. Our friends found it sometimes adds fixtures that aren't in the video, so always compare to the source |
+## 8. Data contract: the world package
 
-## Compute plan
+### 8.1 Conventions (apply everywhere)
 
-Rent one RTX 4090 on RunPod for the weekend; the whole GPU bill should land around $5 to $15, under a $25 cap.
+- **World frame:** right-handed, **+Y up**, metres, floor plane at **y = 0**.
+- **Cameras:** camera-to-world 4×4 matrix in the **three.js/OpenGL convention** (camera looks down −Z, +Y up, +X right), stored as 16 numbers in **row-major** order. The pipeline converts from OpenCV (x right, y down, z forward) by flipping the camera's Y and Z axes.
+- **Intrinsics:** `fx, fy, cx, cy` in pixels of the 1280×720 `video.mp4`. They are constant per shot; reject clips that zoom.
+- **Time:** `video.mp4` starts at the processed window (t = 0). `frame = clamp(round((t − shot.start) × fps), 0, shot.frameCount − 1)`. Use `mediaTime` from `requestVideoFrameCallback`.
+- **Binary files:** little-endian, no header. Shapes are given in the JSON that references them.
+- All paths in the manifest are relative to the manifest URL.
 
-**Why rent at all:** SAM 3, gsplat and the CUDA-only backups don't run on Macs, and Mac splat training is several times slower. The Macs stay useful for DA3 tests, Brush quick looks and all viewer work.
+### 8.2 Layout
 
-| Provider | GPU | Price per hour | Billing | Fit |
-| --- | --- | --- | --- | --- |
-| [RunPod](https://www.runpod.io/gpu-cloud/pricing) Community | RTX 4090, 24 GB | $0.34 | Per second | **Pick this.** Cheapest reliable option; 24 GB is plenty for gsplat and DA3 |
-| [RunPod](https://www.runpod.io/gpu-instance/rtx-4090) Secure | RTX 4090, 24 GB | $0.69 | Per second | Upgrade if community hosts are flaky |
-| [Vast.ai](https://markaicode.com/pricing/vast-ai-pricing/) | RTX 4090, 24 GB | $0.27 floor, $0.50 median | Per second | Cheaper but hosts vary in reliability |
-| [RunPod](https://runpod.io/gpu-cloud) | A100 80 GB | $1.79 | Per second | Only if the giant DA3 model runs out of memory on 24 GB |
-| [Modal](https://modal.com/pricing) | L40S, 48 GB | $1.95 | Per second, serverless | Starter plan includes $30 a month of free credit; good if we script the pipeline as Python functions |
+```
+worlds/<youtubeId>/v<pipelineVersion>/
+  manifest.json
+  video.mp4               # 1280x720 30fps H.264, keyframe every 0.5–1 s (-g 15–30), no B-pyramid, +faststart, AAC audio
+  thumbs.jpg  thumbs.json # seek-bar sprite, 2 fps
+  s0/                     # one folder per reconstructed shot
+    world.rad  world.spz  # Spark LoD (streamed) + SPZ fallback
+    cameras.json
+    walk.json  walk_sdf.bin  coverage.bin  colliders.glb
+    holo.mp4  holo.json   # people layer
+    people/p0/avatar.<ext>  skin.bin  motion.bin  person.json
+```
 
-**Per-clip GPU time on a 4090 (estimates, confirm on clip 1):**
+### 8.3 `manifest.json`
 
-- DA3 poses and depth on about 300 frames: 2 to 5 min
-- SAM 3 masks: 2 to 5 min
-- gsplat training, 30k steps: 10 to 25 min
-- Hologram depth and video packing: under 5 min
+```json
+{
+  "schema": 1,
+  "pipelineVersion": "1",
+  "youtubeId": "abc123",
+  "title": "Sunrise ridge walk",
+  "credit": { "creator": "Channel Name", "license": "CC BY 4.0", "url": "https://youtube.com/watch?v=abc123" },
+  "sceneCard": "Two hikers crest a ridge at sunrise...",
+  "video": { "url": "video.mp4", "fps": 30, "width": 1280, "height": 720, "duration": 58.4,
+             "sourceStart": 12.0, "thumbs": { "sprite": "thumbs.jpg", "index": "thumbs.json" } },
+  "shots": [{
+    "id": "s0", "start": 0.0, "end": 58.4, "frameCount": 1752,
+    "world": { "rad": "s0/world.rad", "spz": "s0/world.spz", "splatCount": 1800000 },
+    "cameras": "s0/cameras.json",
+    "bounds": { "walk": "s0/walk.json", "colliders": "s0/colliders.glb" },
+    "peopleLayer": { "video": "s0/holo.mp4", "meta": "s0/holo.json" },
+    "people": [{ "id": "p0", "label": "vlogger", "person": "s0/people/p0/person.json" }]
+  }],
+  "unreconstructed": [{ "start": 58.4, "end": 60.0 }],
+  "qa": { "verdict": "pass", "notes": "", "fogRadius": 4.5 },
+  "createdAt": "2026-11-21T12:00:00Z"
+}
+```
 
-That is about 30 to 45 min per clip. Six candidate clips (to keep the best four) is about 4 to 5 GPU hours, plus 6 to 8 hours of setup and debugging: roughly 12 hours, or about $4 at the community rate and $8 on Secure Cloud.
+### 8.4 File specs
 
-**Marble:** about $1.20 per world. Budget 2 worlds per scene (one retry) for 4 scenes: about $10, inside the $25 cap. Keep a simple log of every paid call (clip, request ID, cost) so a crashed script never pays twice.
+- **`cameras.json`:** `{ fps, width, height, intrinsics: {fx, fy, cx, cy}, keyframes: [frameIdx...], frames: [{ f, c2w: [16] }] }`, with one entry per video frame in the shot.
+- **`walk.json`:**
+  ```
+  { eyeHeight: 1.6, startFrame: 0,
+    fog: { color: [r,g,b], radius },
+    sdf:      { url, origin: [x,z], cellSize, width, height },
+    coverage: { url, origin: [x,y,z], cellSize, dims: [nx,ny,nz] } }
+  ```
+- **`walk_sdf.bin`:** Float32 array of `height × width` (rows along z, columns along x), signed distance in metres. **Negative = walkable**, positive = outside.
+- **`coverage.bin`:** Uint8 array of `nx·ny·nz`, with x varying fastest. 0 means never seen, 255 means well observed (several views and a good angular spread).
+- **`holo.mp4`:** 1280×1440 at 30 fps.
+  - **Top half:** RGB.
+  - **Bottom half:** greyscale normalized inverse depth, with person pixels mapped to 16–255.
+  - **Value below 8** means not a mover (discard).
+- **`holo.json`:** `{ frames: [[near, far], ...] }`, the metres per frame used for the normalization.
+- **`person.json`:**
+  ```
+  { id, label,
+    avatar: { kind: "splat-lbs" | "mesh-glb" | "ply-seq", url, skin },
+    joints: J, motion: { url, frameCount, layout: "J x 3x4 row-major float32 per frame" },
+    visible: [[startFrame, endFrame], ...] }
+  ```
+  - `motion.bin` holds the world-space joint transforms per frame, precomputed in the pipeline so the browser needs no SMPL-X code.
+  - `kind` is finalized by ticket **A-07** (the avatar rendering spike). Update this section when that decision is made.
 
-**Setup tips:** start from RunPod's PyTorch CUDA template, attach a persistent volume so models and results survive a restart, pin gsplat and torch versions, and stop the pod whenever no one is using it.
+---
 
-## Demo content
+## 9. API contract (P1)
 
-Clip choice decides the demo more than any model does, so we pick six candidates tonight and keep the four that reconstruct best.
+| Method + path | Body / response |
+|---|---|
+| `POST /api/worlds` | Body `{ url }`. Responds `200 { status:"ready", manifestUrl }`, or `202 { status, jobId }`, or `400 { error:"invalid_url" }` |
+| `GET /api/worlds/:youtubeId` | `{ status, stage, stageIndex, stageCount, pct, etaSeconds, sceneCard?, manifestUrl?, error? }` |
+| `GET /api/gallery` | `[{ youtubeId, title, thumb, credit }]`. The P0 fallback is a static `gallery.json`. |
+| `POST /internal/jobs/claim` | Worker only, `Authorization: Bearer $WORKER_TOKEN`. Returns the next queued job or 204. |
+| `POST /internal/jobs/:id/progress` | `{ stage, pct, etaSeconds?, sceneCard? }` |
+| `POST /internal/jobs/:id/complete` or `/fail` | `{ manifestUrl }` or `{ error, detail }` |
 
-**A clip qualifies if it has:**
+- **`status`:** `queued | downloading | analyzing | segmenting | reconstructing | training | people | packaging | qa | ready | failed`
+- **`error`:** `invalid_url | video_unavailable | download_blocked | no_usable_shot | reconstruction_failed | people_failed | qa_rejected | internal`
+- **Pipeline progress events** are JSON lines on stdout: `{"stage":"S4","pct":42,"eta":610}`
 
-- 10 to 30 s of one continuous shot, at 1080p or better
-- A camera that walks or orbits, not one that only pans or zooms. Prefer clips with a turn or sweep: a straight forward walk only sees about 41° to each side and leaves most of the room to be generated
-- A mostly static background, with people covering less than about a third of the frame
-- Even daylight, little motion blur, and ideally a 360-degree sweep somewhere in the shot
+---
 
-| Scene type | Why it works | Main risk |
-| --- | --- | --- |
-| Ridge or summit walk, helmet cam | Big parallax, rock and snow texture, climbers ahead to lift as holograms | Snow glare and sky can produce floaters |
-| Slot canyon or cave walk | Close walls give strong geometry; very "step inside" | Low light and noise |
-| Waterfall or glacier approach on foot | Wow factor; people small in frame | Moving water won't reconstruct; it blurs into a static sheet |
-| Stunt or challenge set (the MrBeast-style room) | Indoor, textured, lots of camera movement | Usually heavy cutting |
-| Our own footage | Guaranteed rights and a slow 360 sweep on purpose | Less dramatic, so film somewhere scenic |
+## 10. Viewer behaviour
 
-**Clips:** we already have our own and openly licensed footage, so there is no rights work; the job is choosing the four that reconstruct best.
+### 10.1 Clock
 
-If a clip fails the DA3 check, swap in the next candidate rather than tuning it.
+- One `<video>` element (unmuted after the first user gesture) is the only clock.
+- A `requestVideoFrameCallback` loop computes `frame` (§8.1) and publishes `{t, frame, shotId, playing}` on a small event bus.
+- Every layer (camera path, avatars, people layer, overlay, HUD) reads from that bus. No layer keeps its own timer.
+- `holo.mp4` is a second video slaved to the master: drift above 1 frame gets corrected by seeking, and smaller drift by a ±5% `playbackRate` nudge.
 
-## Timeline and team
+### 10.2 Camera modes
 
-Tonight's only job is to push one clip all the way through, even by hand; Saturday noon is the go/no-go on the custom pipeline.
+| Mode | Behaviour |
+|---|---|
+| **Ride-along** (default on load and after scrubbing) | Camera = `cameras[frame].c2w`, FOV taken from the intrinsics. The video overlay (a plane filling the original frustum) is shown at 100%, so the world is visible only around the frame edges. |
+| **Walk** | Entered on mouse look or WASD. Eye height 1.6 m above the floor. Walk 1.4 m/s, Shift to run 3 m/s. The overlay fades out over 250 ms. |
+| **Return (R)** | Tween over 400 ms (lerp position, slerp rotation, ease-out) to the current original pose, then switch to ride-along. Doesn't seek. |
 
-| Phase | When | Work | Gate at the end |
-| --- | --- | --- | --- |
-| Prove one clip | Fri, now to 2 am | Pick 6 clips; DA3 test on a Mac; rent the GPU; freeze file format | One clip works end to end |
-| Core pipeline | Sat, 9 am to noon | SAM 3 + gsplat scripted; video plane in sync; camera track | **Go/no-go: splat and camera path line up** |
-| Holograms | Sat, noon to 6 pm | Depth shader; ride-along mode; scene picker, UI | Feature freeze (Sat 6 pm) |
-| Batch scenes | Sat, 6 pm to 1 am | Run 6 clips on GPU; keep the best 4; compress, tune | Four scenes final (Sun 1 am) |
-| Rehearse | Sun morning | Record backup run; pitch 3 times; serve locally | — |
+### 10.3 Scrub state machine
 
-If the go/no-go fails, drop holograms, keep ride-along and free roam, and fill weak scenes with Marble worlds.
+| From | Event | Do | To |
+|---|---|---|---|
+| any | pointerdown on seek bar | Pause video; tween camera to pose at `t` (300–500 ms); overlay fades to 80% | SCRUBBING |
+| SCRUBBING | drag | Camera locked to pose at the drag time; overlay shows the sprite thumbnail, then the decoded frame once the seek lands; avatars and people layer hidden under the overlay | SCRUBBING |
+| SCRUBBING | pointerup | `video.currentTime = t`; on `seeked`, set every layer to `frame`; fade overlay to ride-along level; resume if it was playing | RIDE_ALONG |
+| RIDE_ALONG | mouse look / WASD | Fade overlay out | WALK |
 
-| Person | Owns | Works on |
-| --- | --- | --- |
-| A | Ingest and masks: trimming, cut check, SAM 3, clip curation, shooting our own clip | Mac, plus GPU box for SAM 3 |
-| B (Eric) | Reconstruction: DA3, gsplat, cameras.json, the alignment test; owns the GPU box and budget | GPU box |
-| C | Viewer core: Spark scene, video plane, camera track, ride-along and free-roam controls | Mac |
-| D | Holograms and story: depth packing, hologram shader, UI polish, pitch and backup video | Mac |
+Rules:
 
-## Risks, fallbacks and decisions
+- Never interpolate avatar poses across a seek or a loop. Hold the last pose until the clock wraps.
+- If a scrub crosses a shot boundary (P1), swap worlds while the overlay hides the change.
 
-The riskiest piece is not the ML; it's getting the splat, the camera path and the holograms to agree on one coordinate frame, so we test that first.
+### 10.4 Fog and boundary
 
-| Risk | Mitigation | Fallback |
-| --- | --- | --- |
-| Splat and camera path don't line up | Turn off gsplat's world-space normalisation, or save its transform and apply it to the cameras file. First test: draw frame 0 at its camera pose over the splat | Hand-tune one offset per scene in the viewer |
-| A clip won't reconstruct | Six candidates; DA3 check on a Mac tonight before any GPU time | Pi3X, VGGT or MegaSaM poses; then a Marble world for that scene |
-| Room looks empty or broken off the camera path | Room-fill step with Marble, trained against real frames | Keep viewers near the path with the soft boundary |
-| Marble invents things that weren't filmed (extra fixtures, warped benches) | Train against real frames; compare renders to source frames from the camera poses before accepting a scene | Drop room fill for that scene; the truth view makes remaining gaps honest |
-| Marble splat won't align to the DA3 frame | Fit scale and rigid transform from matched points; check floor height | Skip room fill for that scene |
-| Hologram depth is the wrong scale | Take depth from the same DA3 run as the poses so the scale matches | Scale each frame's depth to match the splat's rendered depth |
-| Floaters from people, sky or water | SAM 3 masks for people; sky mask from DA3; crop the scene's bounding box | Clean up in SuperSplat by hand |
-| Video and 3D drift apart | Drive every layer from the video element's clock; interpolate poses between keyframes | Ride-along mode only |
-| Viewer stutters | Compress splats to SPZ, cap around 1.5 million splats, 1080p H.264 video | Lower splat budget per scene |
-| CUDA setup eats Saturday | One person owns the GPU box; pinned versions; RunPod PyTorch template | Train on Macs with Brush; accept fewer scenes |
-| Live demo fails on stage | Serve everything locally from a laptop | Recorded 3-minute walkthrough video |
+**Splat fade.** Each frame, Spark's splat-processing hook samples `coverage` at the splat's position and blends colour toward `fog.color` and opacity toward 0:
 
-**Decisions made**
+- Coverage at or above 160: untouched.
+- Coverage at or below 40: fully fogged.
 
-- Judging criteria don't change the plan; we build for the Adventure category demo.
-- Clips: our own and openly licensed footage only.
-- Platform: desktop browser, keyboard and mouse. No VR.
-- Eric owns the GPU box and the $25 budget.
+**Fog volume.** A half-resolution pass adds height-falloff fog wherever coverage is low, plus a term based on distance to the walk-SDF boundary. Fog is always **local**. Never darken or fade the whole screen (Orbis PR #54).
 
-## Lessons from a similar project
+**Movement.** Sample the walk SDF at the proposed position:
 
-Our friends built nearly the same product. What it changes for us:
+- Inside the 0.75 m margin: scale velocity by `clamp(−sdf / 0.75, 0, 1)` and push gently along the gradient.
+- At `sdf ≥ 0`: project the velocity onto the boundary tangent (slide; never a hard stop).
+- Colliders block movement.
 
-| Their finding | Our change |
-| --- | --- |
-| Rebuilding from footage alone looks right only from the original camera; forward motion sees about 41° each side | Added the room-fill step (LaMa → Marble → train against real frames) and a clip criterion favouring turns and sweeps |
-| Generative novel-view models (SVC, GeoNVS, GEN3C, Lyra) hallucinated or were too slow | Made them an explicit non-goal; no time spent on them |
-| 3D human reconstruction (V-DPM, PIFuHD) melted limbs; avatars needed heavy work; pose refinement against one camera made it worse | Kept depth holograms of the real pixels; avatars are a non-goal |
-| Marble sometimes added fixtures or warped objects | Every generated room is compared to source frames before it ships; truth view shows what's generated |
-| Pi3X gave reliable camera poses | Added as first backup to DA3 |
-| Video as master clock; walking at eye height | Already our sync design; added eye-height walking |
-| Ledger of paid calls avoided double billing | Simple paid-call log for Marble |
+**Reach.** The walkable region is floor cells that were seen, are free from the floor up to eye height, and lie within `fog.radius` of the camera path (default 3–6 m, tuned per scene or taken from the QA gate). Movement is unlimited inside that region.
 
-**How we stand apart:** desktop-first instead of VR, people stay as real filmed pixels rather than generated avatars, and the truth view makes "what's real" a feature instead of a hidden risk.
+**F** toggles the fog and the splat fade on and off. It's for the demo comparison; the boundary stays active.
 
-## Building it with agents
+### 10.5 People rendering
 
-This PRD is the scope reference named in the repo's CLAUDE.md: agents read it before starting a task, and anything not covered here goes back to a human first.
+| Viewer state | What people look like |
+|---|---|
+| Ride-along / scrubbing | The video overlay itself, so people are exactly the real pixels. |
+| Walk, angle to the original camera ray ≤ 10° and ≤ 0.5 m from the original pose | People layer (depth-displaced real pixels, a grid of about 256×144 driven by `holo.mp4`). Stretched triangles are discarded (depth ratio above 1.08). |
+| Walk, 10–20° | Crossfade from the people layer to the avatars (P1; P0 hard-switches at 15°). |
+| Walk, more than 20° | Avatars only. Movers without an avatar (untracked people, animals, cars) fade out. This is a known limitation. |
 
-**Workflow (from CLAUDE.md)**
+- Avatars are posed from `motion.bin[frame]`, hidden outside their `visible` ranges, and cast a blob contact shadow.
+- The people layer and avatars share the world frame, so with correct S6 placement no alignment work happens in the browser.
 
-- Jira project `KAN` is the source of truth. Every task below becomes a ticket; the agent moves it to In Progress, comments decisions and blockers, and closes it on merge.
-- One branch per ticket (`KAN-12-hologram-shader`), small PRs to `main`, rebase often.
-- Commits are authored by the human, not Claude.
-- `docs/` holds what an agent needs without reading the code, updated in the same PR.
+### 10.6 Shots
+
+- **P0:** when `t` falls in `unreconstructed`, fade the world to fog and show the video on a floating panel in front of the camera. Restore the world when `t` re-enters the shot.
+- **P1:** with several shots, fog fade (300 ms), swap the world, then snap to the new shot's pose at that time in ride-along.
+
+### 10.7 Controls
+
+| Input | Action |
+|---|---|
+| Click canvas | Pointer lock |
+| WASD / mouse | Walk / look |
+| Shift | Run |
+| Space | Play/pause |
+| ← / → | −5 s / +5 s |
+| R | Return to camera |
+| C | Toggle ride-along |
+| F | Toggle fog (demo) |
+| M | Mini-map (P2) |
+| Esc | Release pointer |
+
+### 10.8 Performance budget
+
+- `devicePixelRatio` capped at 1.5.
+- Spark LoD budget: 1.5M splats by default (Apple and integrated GPUs), 2.5M on discrete GPUs (detected from the WebGL renderer string).
+- Fog pass at half resolution.
+- Avatar updates at most at the video frame rate.
+- `holo.mp4` decoded at 720p.
+
+---
+
+## 11. Compute and cost
+
+| Option | GPU | Price (verify live) | Use |
+|---|---|---|---|
+| Vultr (MLH credits) | A100 80 GB or L40S 48 GB | about $2.40/h for a full A100 80 GB; L40S $1.671/h. Vultr's "$1.29/h A100" is likely a fractional vGPU, so avoid it. | **First choice.** Confirm at the MLH/Vultr table that credits cover GPU plans. |
+| RunPod | A100 80 GB | about $1.79/h | Fallback if Vultr GPUs aren't covered or available |
+| RunPod Community | RTX 4090 24 GB | about $0.34/h | Cheap dev/debug box. May run out of memory on LHM-1B plus long clips. |
+| Team Macs | Apple Silicon | — | Viewer, extension, web, DA3/Brush quick looks |
+
+- **Budget:** a working cap of **$60 out of pocket** (the team can change it). Eric keeps `docs/gpu-ledger.md` with one line per session: date, box, hours and cost.
+- **Estimate:** 6 candidate clips × about 1 h, plus about 10 h of setup and debugging, is roughly 16 GPU-hours, about $40 on an A100.
+- **Paid APIs:** Gemini on the free tier. Marble only through ticket E-12: one hero clip, $5 or less, API credits only, logged in the ledger. Stop the GPU box whenever it's idle.
+
+---
+
+## 12. Demo content rules
+
+A clip qualifies only if it meets all of these:
+
+- 30–60 s of **one continuous shot**, 720p or better.
+- The camera **walks or orbits** (lateral motion or a turn). Pans or zooms alone don't count. A straight forward walk only sees about 41° to each side.
+- A mostly static, non-reflective background. No mirrors, glass walls, water surfaces, night footage or crowds.
+- 1–3 clearly visible people, each covering less than about a third of the frame, with at least one front-facing moment each.
+- **Rights:** our own footage, a CC-BY video, or written permission from the creator. Credit is shown in the HUD and the gallery.
+
+Shortlist 6 candidates and keep the best 4: at least one real vlog with 1–2 people, one nature/scenery walk and one street or park scene.
+
+**YouTube ToS framing:** this is a research prototype that only processes creator-permitted or openly licensed videos. A production version would be an opt-in creator feature. Downloading from datacenter IPs is often bot-blocked, so demo clips are downloaded and baked ahead of time.
+
+---
+
+## 13. Lessons from Orbis Engine (reference only, not a dependency)
+
+| Do | Don't |
+|---|---|
+| Train the background on real frames. Use fog for the rest. | Use generative novel-view models or trust generated rooms without checking them against source frames. |
+| Use the video as the master clock; walk at eye height; return to the scene without seeking. | Darken the whole screen at the boundary. |
+| Hold an avatar's last pose until the clock loops. | Interpolate toward frame 0 before the video ends (PR #54). |
+| Exclude masks from the RGB **and** depth losses. | Let foreground depth leak into background targets (PR #80). |
+| Use a global or anchored, overlapping pose solve. | Stitch independent pose batches (PR #82). |
+| Crop avatar identity inputs **inside that person's mask**. | Search the whole frame for a face; it can pick a bystander (PR #53). |
+| Scale people from a body-height prior plus the floor plane. Pin the feet. | Scale from scene depth alone; you get oversized avatars with sunk feet (PRs #113, #125). |
+| Match SAM instances one-to-one with body tracks. | Associate detections loosely; lamps get tracked as people and walkers split across IDs (PR #132). |
+| Ship one canonical avatar plus a compact per-frame pose array. | Ship per-frame person PLYs (Orbis had 240). |
+| Keep a paid-call ledger and idempotent stages. | Retry paid calls blindly. |
+
+- Orbis's demo shots were 1.5–10 s long. Ours are 30–60 s, so tracking failures, pose drift and asset size all matter much more.
+- Orbis code is Apache-2.0. We may reuse viewer patterns (`src/video-projection.ts`, `src/walk-map.ts`, edge fade) with attribution.
+- Read `docs/research-log.md` and the `archived-main` branch at https://github.com/dtpu/OrbisEngine before building your area.
+
+---
+
+## 14. Risks and fallback ladder
+
+| Stage | Plan A | Plan B | Plan C |
+|---|---|---|---|
+| Download | yt-dlp (latest) + Deno + PO-token plugin | + cookies from a throwaway account | Pre-downloaded demo files only |
+| Shots | PySceneDetect + Gemini | PySceneDetect only | Hand-picked single shot |
+| Masks | SAM 3 with Gemini prompts | SAM 3 with prompt "person" | Per-frame instance segmentation + tracker |
+| Cameras | DA3 global solve | DA3 chunks + similarity alignment, or Pi3X | VGGT / COLMAP on keyframes |
+| Background | gsplat with masked losses + fog | Brush | Swap the clip |
+| People | Avatar + people layer + blend | Avatar only | People layer only (no walk-around) |
+| Unseen space | Fog | Tighter fog radius | Marble hero clip (E-12) |
+| Viewer | Spark .RAD LoD | SPZ, lower splat budget | Recorded walkthrough video |
+
+**Top risks**
+
+1. **Splat, cameras and people disagree on the coordinate frame.** Test it first: draw frame N at its pose over the splat (the G2 gate).
+2. **Tracking everyone over 60 s.** Orbis never passed its all-person check. Pick clips with 1–3 people and let Gemini prompt SAM.
+3. **Avatar placement** (sunk feet, wrong scale).
+4. **Pose drift on long shots.**
+5. **Animated avatar performance on an M1 Air** (the A-07 spike decides splat vs. mesh).
+6. **Vultr credits may not cover GPUs.** Ask on day 1.
+
+**Gates**
+
+| Gate | Pass condition | If it fails |
+|---|---|---|
+| G1 | The viewer plays a hand-made test world in sync. | — |
+| G2 (go/no-go) | One real clip's splat lines up with its video frames from the camera poses. | Swap the clip or switch to Pi3X. |
+| G3 | One person moves correctly in the world. | Ship the people layer only. |
+| G4 | Four demo worlds meet NFR-01 and NFR-02. | — |
+| G5 | Devpost submitted and backup video recorded. | — |
+
+---
+
+## 15. Ownership
+
+| Person | Owns |
+|---|---|
+| **Eric** | Reconstruction and GPU: the GPU box and budget, pipeline runner, S3–S5, packaging (S9), baking the demo worlds, room-fill experiment |
+| **Adam** | People, end to end: S2 masks, S6 body tracking and placement, S7 avatars, S8 people layer, and the viewer's `people/` module (avatars, people layer, blend) |
+| **Sharib** | Viewer: loader, clock, camera modes, scrubbing, fog and boundary rendering, HUD, performance, offline demo bundle, demo recording |
+| **Kevin** | Ingest and Gemini (S0, S1, QA gate), API/worker/hosting on Vultr, extension, landing page, clip rights, Devpost and sponsor write-ups |
+
+---
+
+## 16. Agent working rules
+
+- Jira project `KAN` is the source of truth for tasks. Move your ticket to In Progress, comment decisions and blockers, and close it on merge.
+- One branch per ticket (`KAN-12-scrub-state-machine`), small PRs to `main`, rebase often. Commits are authored by the human, not the agent.
+- Stay inside your area's folder. Changes to §8 or §9 need a PR that edits PRD.md and tags the affected owners.
+- Never commit `.env`, keys, cookies or model weights. Pin dependency versions. `docs/` is updated in the same PR as the code it describes.
 
 **Repo layout**
 
 | Path | Contents |
-| --- | --- |
-| `pipeline/` | Python scripts run on the GPU box: ingest, masks, geometry, train, track, holo |
-| `viewer/` | Vite + three.js + Spark desktop web app |
-| `scenes/` | Pipeline output per scene (git-ignored; copied into `viewer/public/scenes/`) |
-| `docs/` | `architecture.md`, `scene-format.md`, `gpu-setup.md`, `viewer.md` |
+|---|---|
+| `extension/` | MV3 extension |
+| `web/` | Vite + TypeScript + three.js + Spark: landing (`/`) and viewer (`/w/:id`). People code goes in `web/src/people/`. |
+| `server/` | FastAPI API and GPU worker loop |
+| `pipeline/` | Stage scripts `s0_ingest.py` … `s9_package.py`, runner `run.py`, env files `envs/*.yml` |
+| `config/` | `gemini.yaml`, pipeline defaults |
+| `docs/` | `world-format.md`, `gpu-setup.md`, `gpu-ledger.md`, `clips.md`, `demo-worlds.md` |
+| `work/`, `worlds/` | Git-ignored pipeline output |
 
-**Starting tickets**
+---
 
-| Ticket | Owner | Done when |
-| --- | --- | --- |
-| Freeze the scene file format, plus a hand-made test scene | Eric + C | `docs/scene-format.md` merged; viewer loads the test scene |
-| GPU box setup with pinned versions | Eric | DA3 and gsplat run on a sample; `docs/gpu-setup.md` written |
-| Ingest script: trim, cut check, frames, keyframes | A | One clip produces frames and keyframes |
-| SAM 3 people masks | A | Dilated masks for every frame of one clip |
-| DA3 poses and depth, COLMAP export, cameras.json | Eric | Poses look right in a quick Brush or viser check |
-| gsplat training and SPZ export | Eric | One clean scene.spz with people removed |
-| Room fill: LaMa inpaint, Marble world, align, train against real frames | Eric | One scene looks complete off the camera path; per-splat coverage saved |
-| Truth view toggle | C | Filmed vs generated splats visibly tinted |
-| Alignment test: frame 0 drawn at its pose over the splat | Eric + C | Video frame lines up with the splat (Saturday noon gate) |
-| Viewer: Spark scene, video plane, sync loop | C | Video and camera track play in lockstep |
-| Viewer: ride-along and free-roam controls | C | Pointer lock, WASD, snap back, soft boundary |
-| Hologram packing and depth shader | D | People from one clip move through the splat |
-| Scene picker and title cards | D | Four scenes switchable from one page |
-| Batch six clips and pick four | Eric | Four final scenes in `scenes/` by Sunday 1 am |
-| Backup recording and pitch | D | 3-minute recorded walkthrough saved locally |
+## 17. Licences
 
-## Sources
+- Fine for a non-commercial hackathon demo; flag before any product use:
+  - **Research-only:** Pi3X weights (CC BY-NC), DA3 Large/Giant/Nested weights (CC BY-NC), SMPL/SMPL-X (non-commercial).
+  - **Meta's own licence:** SAM 3.
+- **Permissive:** gsplat (Apache-2.0), Brush (Apache-2.0), Spark (MIT), LHM code (Apache-2.0), Orbis code (Apache-2.0), yt-dlp (Unlicense).
 
-- [Depth Anything 3 repository](https://github.com/ByteDance-Seed/Depth-Anything-3) and [model licences](https://pypi.org/project/depth-anything-3/0.1.0/)
-- [SAM 3 (Meta)](https://ai.meta.com/sam3/) and [fal.ai SAM 3 video pricing](https://fal.ai/models/fal-ai/sam-3/video)
-- [gsplat](https://github.com/nerfstudio-project/gsplat), [Brush](https://github.com/ArthurBrussee/brush), [Brush 0.2 masks support](https://radiancefields.com/brush-0-2-released)
-- [Spark docs](https://sparkjs.dev/docs/overview/) and [Spark on Radiance Fields](https://radiancefields.com/platforms/spark)
-- [Video Depth Anything](https://arxiv.org/abs/2501.12375), [MegaSaM](https://mega-sam.github.io), [GVHMR](https://arxiv.org/abs/2409.06662)
-- [RunPod pricing](https://www.runpod.io/gpu-cloud/pricing), [Modal pricing](https://modal.com/pricing), [Vast.ai prices, Nov 16 2026](https://markaicode.com/pricing/vast-ai-pricing/)
+**Key references:** [OrbisEngine](https://github.com/dtpu/OrbisEngine) · [Orbis Devpost](https://devpost.com/software/temp-jcyltx) · [Depth Anything 3](https://github.com/ByteDance-Seed/Depth-Anything-3) · [Pi3](https://github.com/yyfz/Pi3) · [gsplat](https://github.com/nerfstudio-project/gsplat) · [LHM](https://github.com/aigc3d/LHM) · [Spark 2.0](https://sparkjs.dev/docs/new-features-2.0/) · [Gemini video understanding](https://ai.google.dev/gemini-api/docs/video-understanding) · [Marble API pricing](https://docs.worldlabs.ai/api/pricing) · [HW13 Devpost](https://hack-western-13.devpost.com/)
