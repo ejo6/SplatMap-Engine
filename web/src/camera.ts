@@ -1,6 +1,8 @@
 import * as THREE from 'three';
+import { clampMoveForColliders, resolveWalkMove, type WalkSdfGrid } from './walk-bounds';
 
 // SH-03: camera modes - ride-along, walk, return (PRD §10.2, FR-16-18)
+// SH-07: walk boundary - SDF damping/push/slide, plus colliders (PRD §10.4, FR-22)
 
 export interface CamerasFile {
   fps: number;
@@ -11,6 +13,12 @@ export interface CamerasFile {
 }
 
 export type CameraMode = 'ride-along' | 'walk' | 'returning' | 'scrubbing';
+
+/** Optional walk-area bounds (PRD §10.4); a shot with no E-06 output yet omits both and walking is unbounded. */
+export interface WalkBounds {
+  sdf?: WalkSdfGrid;
+  colliders?: THREE.Object3D[];
+}
 
 const WALK_SPEED = 1.4; // m/s, PRD §10.2
 const RUN_SPEED = 3;
@@ -52,6 +60,7 @@ export class CameraRig {
   private readonly canvas: HTMLElement;
   private readonly cameras: CamerasFile;
   private readonly eyeHeight: number;
+  private readonly bounds: WalkBounds;
   private frame = 0;
 
   private readonly keys = new Set<string>();
@@ -63,10 +72,11 @@ export class CameraRig {
   private returnElapsedMs = 0;
   private scrubFrame = 0;
 
-  constructor(canvas: HTMLElement, aspect: number, cameras: CamerasFile, eyeHeight: number) {
+  constructor(canvas: HTMLElement, aspect: number, cameras: CamerasFile, eyeHeight: number, bounds: WalkBounds = {}) {
     this.canvas = canvas;
     this.cameras = cameras;
     this.eyeHeight = eyeHeight;
+    this.bounds = bounds;
 
     const fovY = THREE.MathUtils.radToDeg(2 * Math.atan(cameras.height / 2 / cameras.intrinsics.fy));
     this.camera = new THREE.PerspectiveCamera(fovY, aspect, 0.01, 1000);
@@ -176,7 +186,14 @@ export class CameraRig {
     if (this.keys.has('KeyS')) move.sub(forward);
     if (this.keys.has('KeyD')) move.add(right);
     if (this.keys.has('KeyA')) move.sub(right);
-    if (move.lengthSq() > 0) this.walkPos.addScaledVector(move.normalize(), speed);
+
+    if (move.lengthSq() > 0) {
+      const delta = move.normalize().multiplyScalar(speed);
+      const bounded = resolveWalkMove(this.bounds.sdf, { x: this.walkPos.x, z: this.walkPos.z }, { x: delta.x, z: delta.z }, dtSeconds);
+      delta.set(bounded.x, 0, bounded.z);
+      const clamped = this.bounds.colliders?.length ? clampMoveForColliders(this.bounds.colliders, this.walkPos, delta) : delta;
+      this.walkPos.add(clamped); // eye height is fixed on entering walk mode (PRD §10.4), so y never moves here
+    }
 
     this.camera.position.copy(this.walkPos);
     this.camera.quaternion.setFromEuler(new THREE.Euler(this.pitch, this.yaw, 0, 'YXZ'));

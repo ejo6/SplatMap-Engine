@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { SparkRenderer, SplatMesh } from '@sparkjsdev/spark';
 import { MasterClock, unmuteOnFirstGesture } from './clock';
 import { CameraRig, poseAt, type CamerasFile } from './camera';
@@ -6,6 +7,7 @@ import { VideoOverlay } from './overlay';
 import { createTransportUI, type ThumbsSprite } from './transport';
 import { ScrubController } from './scrub';
 import { loadPeople } from './people';
+import type { WalkSdfGrid } from './walk-bounds';
 import './style.css';
 
 // SH-01: viewer scaffold + world loader (PRD §7.4, §8, §10.8, FR-05)
@@ -28,8 +30,29 @@ interface Manifest {
     // pipeline (E-03 already normalizes our captures to +Y up; third-party ones may not be).
     world: { rad?: string; spz?: string; rotation?: [number, number, number] };
     cameras: string;
-    bounds?: { walk?: string };
+    bounds?: { walk?: string; colliders?: string };
   }[];
+}
+
+// SH-07: walk.json's own file spec (docs/world-format.md), beyond the `eyeHeight` SH-01 already read.
+interface WalkFile {
+  eyeHeight: number;
+  sdf?: { url: string; origin: [number, number]; cellSize: number; width: number; height: number };
+}
+
+/** Loads the SDF binary and colliders a shot's walk.json points to (both optional until E-06 runs). */
+async function loadWalkBounds(base: string, walkPath: string, walk: WalkFile, colliderPath?: string) {
+  const walkDir = base + walkPath.slice(0, walkPath.lastIndexOf('/') + 1);
+
+  const sdf: WalkSdfGrid | undefined = walk.sdf
+    ? await fetch(walkDir + walk.sdf.url)
+        .then((r) => r.arrayBuffer())
+        .then((buf) => ({ data: new Float32Array(buf), origin: walk.sdf!.origin, cellSize: walk.sdf!.cellSize, width: walk.sdf!.width, height: walk.sdf!.height }))
+    : undefined;
+
+  const colliders = colliderPath ? await new GLTFLoader().loadAsync(base + colliderPath).then((gltf) => [gltf.scene]) : undefined;
+
+  return { sdf, colliders };
 }
 
 async function resolveManifest(youtubeId: string): Promise<{ manifest: Manifest; base: string } | null> {
@@ -89,12 +112,12 @@ async function loadWorld(manifest: Manifest, base: string) {
   // SH-03: camera modes - ride-along, walk, return (PRD §10.2, FR-16-18)
   const [cameras, walk, thumbs] = await Promise.all([
     fetch(base + shot.cameras).then((r) => r.json() as Promise<CamerasFile>),
-    shot.bounds?.walk
-      ? fetch(base + shot.bounds.walk).then((r) => r.json() as Promise<{ eyeHeight: number }>)
-      : Promise.resolve(undefined),
+    shot.bounds?.walk ? fetch(base + shot.bounds.walk).then((r) => r.json() as Promise<WalkFile>) : Promise.resolve(undefined),
     fetch(base + manifest.video.thumbs.index).then((r) => r.json() as Promise<ThumbsSprite>),
   ]);
-  const rig = new CameraRig(renderer.domElement, innerWidth / innerHeight, cameras, walk?.eyeHeight ?? DEFAULT_EYE_HEIGHT);
+  // SH-07: walk boundary - SDF damping/push/slide plus colliders (PRD §10.4, FR-22)
+  const bounds = walk && shot.bounds?.walk ? await loadWalkBounds(base, shot.bounds.walk, walk, shot.bounds.colliders) : {};
+  const rig = new CameraRig(renderer.domElement, innerWidth / innerHeight, cameras, walk?.eyeHeight ?? DEFAULT_EYE_HEIGHT, bounds);
 
   addEventListener('resize', () => {
     rig.camera.aspect = innerWidth / innerHeight;
