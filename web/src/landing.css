@@ -1,45 +1,284 @@
-:root { color-scheme:dark; font-family:system-ui,sans-serif; background:#0b1217; color:#f4f1eb; }
-* { box-sizing:border-box; }
-body { margin:0; }
-a { color:inherit; }
-header,.section { width:min(1280px,90%); margin:auto; }
-header { display:flex; align-items:center; justify-content:space-between; gap:1rem; min-height:76px; }
-.brand, nav a { text-decoration:none; }
-.brand { display:flex; gap:.8rem; align-items:center; font-weight:700; letter-spacing:-.035em; }
-.mark { width:19px; height:24px; border:2px solid #ffac82; transform:skewY(-12deg); box-shadow:inset 5px 0 #ad643f; }
-nav { display:flex; gap:2rem; font-size:.9rem; }
-nav a:hover { text-decoration:underline; }
-.hero { position:relative; isolation:isolate; overflow:hidden; background:#0b1720; border-block:1px solid #334048; }
-.scene { position:absolute; inset:0 0 0 32%; z-index:-1; }
-.scene canvas { width:100%; height:100%; object-fit:cover; }
-.scene::after { content:''; position:absolute; inset:0; background:linear-gradient(to right,#0b1720,transparent 28%); }
-.intro { width:min(1280px,90%); margin:auto; padding:clamp(4rem,7vw,7rem) 0; }
-h1,h2,p { margin:0; }
-h1 { font:normal clamp(3.6rem,6.4vw,6.5rem)/.98 Georgia,serif; letter-spacing:-.067em; }
-h1 em { color:#ffaf86; font-size:.79em; }
-.intro p,.guide p { color:#c6ccce; line-height:1.6; max-width:41ch; margin:1.4rem 0; }
-form { max-width:min(100%,440px); margin-top:2rem; }
-label { display:block; margin-bottom:.5rem; font-size:.875rem; }
-.field { display:flex; padding:.3rem; border:1px solid #69767a; border-radius:.5rem; background:#101a20; }
-input,button { font:inherit; }
-input { min-width:0; flex:1; padding:.65rem; color:white; border:0; background:none; }
-button { background:#ffae84; color:#23150f; border:0; border-radius:.28rem; font-weight:650; padding:.65rem 1rem; cursor:pointer; }
-button:hover { background:#ffc09f; }
-:focus-visible { outline:2px solid #ffcaa9; outline-offset:2px; }
-#error { color:#ffc4aa; display:block; margin-top:.5rem; }
-.section { padding:3rem 0; border-bottom:1px solid #334048; }
-h2 { font:normal 2.3rem Georgia,serif; letter-spacing:-.045em; margin-bottom:1rem; }
-#gallery { display:flex; flex-wrap:wrap; gap:1.25rem; color:#bac4c8; }
-#gallery a { display:grid; gap:.4rem; width:min(340px,100%); text-decoration:none; }
-#gallery img { width:100%; aspect-ratio:16/9; object-fit:cover; }
-#gallery a:hover strong { text-decoration:underline; }
-.guide { display:grid; grid-template-columns:repeat(2,1fr); gap:2rem; }
-.guide p { max-width:56ch; }
-@media(max-width:720px) {
-  header { min-height:66px; } nav { gap:.8rem; } nav a:last-child { display:none; }
-  .scene { inset:0 0 auto; height:240px; }
-  .scene canvas { object-position:center 52%; }
-  .scene::after { background:linear-gradient(to top,#0b1720,transparent 30%); }
-  .intro { padding:218px 0 2.5rem; }
-  .guide { grid-template-columns:1fr; }
+/* K-11 landing: daylight alpine. Moraine Lake as the ground, the waterline as the threshold. */
+:root {
+  --snow: #f4f8f7;
+  --ink: #0d2a33;
+  --ink-soft: #36545d;
+  --glacier: #17808f;
+  --glacier-pale: #d3e7e8;
+  --spruce: #1f3a2c;
+  --red: #e33b30;
+  --red-deep: #c42d23;
+  --display: 'Bricolage Grotesque Variable', 'Avenir Next', 'Segoe UI', sans-serif;
+  --text: 'Bricolage Grotesque Variable', 'Avenir Next', 'Segoe UI', sans-serif;
+  --gutter: clamp(20px, 6vw, 96px);
+  color-scheme: light;
+  background: var(--snow);
+  color: var(--ink);
+  font: 400 1.0625rem/1.6 var(--text);
+  font-optical-sizing: auto;
+  scrollbar-color: #9cbcc0 var(--snow);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; }
+#app { display: block; }
+::selection { background: var(--glacier); color: #fff; }
+a { color: inherit; text-underline-offset: 0.22em; text-decoration-thickness: 1px; }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 3px solid var(--glacier); outline-offset: 3px; border-radius: 4px; }
+h1, h2, h3, p { margin: 0; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; }
+code, kbd {
+  font: 500 0.9em/1 ui-monospace, 'SF Mono', Menlo, monospace;
+  background: var(--glacier-pale);
+  color: var(--ink);
+  padding: 0.18em 0.42em;
+  border-radius: 5px;
+}
+kbd { box-shadow: 0 2px 0 #a9c9cb; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.defs { position: absolute; width: 0; height: 0; }
+
+/* ---------- Header, set into the sky ---------- */
+.top {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 26px var(--gutter);
+}
+.brand { font: 720 1.12rem/1 var(--display); letter-spacing: -0.02em; text-decoration: none; }
+.top nav { display: flex; gap: clamp(14px, 2.4vw, 34px); font-weight: 560; font-size: 0.98rem; }
+.top nav a { text-decoration: none; }
+.top nav a:hover { text-decoration: underline; }
+
+/* ---------- The lake ---------- */
+.lake {
+  position: relative;
+  height: 100svh;
+  min-height: 620px;
+  max-height: 1100px;
+  overflow: hidden;
+  isolation: isolate;
+  --waterline: 60%;
+}
+.photo { position: absolute; inset: 0; z-index: -1; transform-origin: 50% 38%; transition: transform 720ms cubic-bezier(0.2, 0.7, 0.15, 1); }
+.photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 50%; }
+.reflection {
+  position: absolute;
+  inset: 0;
+  clip-path: inset(var(--waterline) 0 0 0);
+  filter: url(#ripple);
+  transition: opacity 500ms ease-out;
+}
+/* The lake deepens toward the viewer, which also seats the white type below the waterline. */
+.reflection::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent var(--waterline), rgba(6, 36, 44, 0.34) 78%, rgba(6, 36, 44, 0.55));
+}
+.reflection .echo {
+  inset: auto;
+  top: var(--waterline);
+  right: var(--gutter);
+  left: auto;
+  width: min(460px, 34vw);
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  transform: scaleY(-1);
+  opacity: 0.62;
+  mask-image: linear-gradient(to top, #000 10%, transparent 95%);
+  z-index: 1;
+}
+
+.lake h1 {
+  position: absolute;
+  left: var(--gutter);
+  top: clamp(108px, 17svh, 190px);
+  max-width: 11ch;
+  font-size: clamp(3.1rem, 7.4vw, 6rem);
+  font-weight: 740;
+  line-height: 0.94;
+  letter-spacing: -0.035em;
+  color: var(--ink);
+}
+
+.shore {
+  position: absolute;
+  left: var(--gutter);
+  top: calc(var(--waterline) - 33px);
+  width: min(640px, calc(100% - 2 * var(--gutter)));
+}
+.field {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 14px 34px -14px rgba(6, 36, 44, 0.55), 0 2px 6px rgba(6, 36, 44, 0.12);
+}
+.field input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  padding: 0 14px;
+  height: 54px;
+  font: 500 1.08rem/1 var(--text);
+  color: var(--ink);
+  caret-color: var(--red);
+}
+.field input::placeholder { color: #557078; }
+.field input:focus-visible { outline: none; }
+.field:focus-within { outline: 3px solid var(--glacier); outline-offset: 3px; }
+.field input[aria-invalid='true'] { text-decoration: underline wavy var(--red) 1px; text-underline-offset: 6px; }
+.field button {
+  border: 0;
+  border-radius: 10px;
+  padding: 0 24px;
+  background: var(--red);
+  color: #fff;
+  font: 680 1.05rem/1 var(--display);
+  cursor: pointer;
+  transition: background 160ms ease-out, transform 160ms ease-out;
+}
+.field button:hover { background: var(--red-deep); }
+.field button:active { transform: translateY(1px); }
+.door {
+  margin-top: 22px;
+  font: 680 clamp(1.7rem, 3.1vw, 2.7rem)/1.05 var(--display);
+  letter-spacing: -0.025em;
+  color: #fff;
+  text-shadow: 0 2px 14px rgba(4, 28, 36, 0.4);
+}
+.hint { margin-top: 10px; max-width: 46ch; font-size: 0.98rem; color: #eef6f6; text-shadow: 0 1px 8px rgba(4, 28, 36, 0.45); }
+.error:empty { display: none; }
+.error {
+  display: inline-block;
+  margin-top: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #fff;
+  color: #a5231b;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.credit {
+  position: absolute;
+  right: var(--gutter);
+  bottom: 18px;
+  font-size: 0.78rem;
+  color: #f1f7f7;
+  text-shadow: 0 1px 6px rgba(4, 28, 36, 0.6);
+}
+
+/* Submitting: rise through the waterline into the peaks. */
+.lake.rising .photo { transform: scale(1.55) translateY(7%); }
+.lake.rising .reflection { opacity: 0; }
+.lake.rising h1, .lake.rising .shore, .lake.rising .credit { opacity: 0; transition: opacity 260ms ease-out; }
+
+/* ---------- Bands below the lake ---------- */
+.band { padding: clamp(80px, 10vw, 148px) var(--gutter); }
+.band h2, .fog h2 { font-size: clamp(2.2rem, 4.4vw, 3.7rem); font-weight: 720; line-height: 1; letter-spacing: -0.032em; }
+.lede { margin-top: 18px; max-width: 58ch; font-size: 1.15rem; color: var(--ink-soft); }
+
+.gallery {
+  margin-top: 48px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: 36px 28px;
+}
+.world { display: grid; gap: 10px; text-decoration: none; }
+.world img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 14px; background: var(--glacier-pale); transition: transform 300ms cubic-bezier(0.2, 0.7, 0.15, 1); }
+.world:hover img { transform: translateY(-3px); }
+.world strong { font: 680 1.3rem/1.15 var(--display); letter-spacing: -0.02em; }
+.world small { color: var(--ink-soft); font-size: 0.92rem; }
+/* Empty: a frame of fog, the same mist the worlds use where nothing was filmed yet. */
+.empty {
+  grid-column: 1 / -1;
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+  padding: 32px;
+  border: 1.5px dashed #9cc3c6;
+  border-radius: 18px;
+  background: radial-gradient(ellipse at 30% 40%, #ffffff, var(--glacier-pale) 70%);
+  color: var(--ink-soft);
+  font-size: 1.1rem;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.how { background: #e9f2f1; }
+.ridge { display: block; width: 100%; height: clamp(60px, 9vw, 110px); margin: 56px 0 -6px; }
+.ridge path { fill: none; stroke: var(--ink); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.trail { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(24px, 4vw, 64px); counter-reset: step; }
+.trail li { counter-increment: step; border-top: 2px solid var(--ink); padding-top: 22px; }
+.trail li::before {
+  content: counter(step);
+  display: block;
+  font: 760 clamp(2.6rem, 4.4vw, 3.8rem)/1 var(--display);
+  color: var(--glacier);
+  margin-bottom: 14px;
+}
+.trail h3 { font-size: 1.45rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+.trail p { margin-top: 10px; color: var(--ink-soft); max-width: 38ch; }
+
+.fog { position: relative; min-height: clamp(460px, 62vh, 640px); display: flex; align-items: center; padding: 72px var(--gutter); overflow: hidden; }
+.haze {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, var(--snow) 0 30%, rgba(244, 248, 247, 0.55) 46%, rgba(244, 248, 247, 0) 62%, rgba(244, 248, 247, 0) 80%, var(--snow) 100%),
+    url('/landing/moraine-1280.webp') 50% 42% / cover;
+  mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent);
+}
+.fog-copy { position: relative; max-width: 30rem; }
+.fog-copy p { margin-top: 20px; font-size: 1.15rem; color: var(--ink-soft); }
+
+.extension { display: grid; grid-template-columns: 1.1fr 1fr; gap: 40px clamp(32px, 6vw, 96px); align-items: center; }
+.ext-demo {
+  grid-row: span 2;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  min-height: 220px;
+  padding: 32px;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 18px 44px -24px rgba(6, 36, 44, 0.5);
+}
+/* The extension's real button, drawn as it ships (extension/content.css), beside two blank chips. */
+.ext-demo::before, .ext-demo::after { content: ''; width: 88px; height: 36px; border-radius: 18px; background: #f0f0f0; }
+.ext-demo::after { width: 64px; }
+.pill { order: 3; height: 36px; padding: 0 16px; border-radius: 18px; background: #e6e6e6; color: #0f0f0f; font: 500 14px/36px Roboto, Arial, sans-serif; outline: 2px solid var(--red); outline-offset: 4px; }
+.steps { margin: 0; padding-left: 1.4em; display: grid; gap: 12px; color: var(--ink-soft); font-size: 1.06rem; }
+.steps li::marker { font-weight: 700; color: var(--glacier); }
+
+.foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px 40px; padding: 36px var(--gutter) 44px; border-top: 1px solid #c4d8d9; color: var(--ink-soft); font-size: 0.9rem; }
+
+@media (max-width: 760px) {
+  .top { padding-top: 20px; }
+  .top nav a:not(:first-child) { display: none; }
+  .lake h1 { top: 96px; }
+  .reflection .echo { width: 52vw; }
+  .trail { grid-template-columns: 1fr; }
+  .extension { grid-template-columns: 1fr; }
+  .ext-demo { grid-row: auto; min-height: 150px; }
+  .fog .haze { background:
+    linear-gradient(180deg, var(--snow) 0 38%, rgba(244, 248, 247, 0.4) 70%, rgba(244, 248, 247, 0)),
+    url('/landing/moraine-1280.webp') 50% 42% / cover; }
+  .fog { align-items: flex-start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .reflection { filter: none; }
+  .photo, .world img, .field button { transition: none; }
 }
