@@ -20,12 +20,13 @@ const PITCH_LIMIT = Math.PI / 2 - 0.01;
 const WASD_CODES = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD']);
 const RUN_CODES = new Set(['ShiftLeft', 'ShiftRight']);
 
-interface Pose {
+export interface Pose {
   position: THREE.Vector3;
   quaternion: THREE.Quaternion;
 }
 
-function poseAt(cameras: CamerasFile, frame: number): Pose {
+/** The original recorded camera's pose at a shot frame (PRD §8.1), shared by every layer that tracks it. */
+export function poseAt(cameras: CamerasFile, frame: number): Pose {
   const f = cameras.frames[Math.min(Math.max(frame, 0), cameras.frames.length - 1)];
   const matrix = new THREE.Matrix4().set(...(f.c2w as THREE.Matrix4Tuple));
   const position = new THREE.Vector3();

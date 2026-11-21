@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { SparkRenderer, SplatMesh } from '@sparkjsdev/spark';
 import { MasterClock, unmuteOnFirstGesture } from './clock';
-import { CameraRig, type CamerasFile } from './camera';
+import { CameraRig, poseAt, type CamerasFile } from './camera';
+import { VideoOverlay } from './overlay';
 import './style.css';
 
 // SH-01: viewer scaffold + world loader (PRD §7.4, §8, §10.8, FR-05)
@@ -87,14 +88,6 @@ async function loadWorld(manifest: Manifest, base: string) {
     renderer.setSize(innerWidth, innerHeight);
   });
 
-  const timer = new THREE.Timer();
-  timer.connect(document);
-  renderer.setAnimationLoop(() => {
-    timer.update();
-    rig.update(timer.getDelta());
-    renderer.render(scene, rig.camera);
-  });
-
   // SH-02: the master video is the only clock; every other layer reads its bus (PRD §10.1, FR-15).
   const video = document.createElement('video');
   video.src = base + manifest.video.url;
@@ -102,8 +95,27 @@ async function loadWorld(manifest: Manifest, base: string) {
   video.playsInline = true;
   video.autoplay = true;
   unmuteOnFirstGesture(video);
-  new MasterClock(video, shot, manifest.video.fps).subscribe((state) => rig.setFrame(state.frame));
+
+  // SH-04: video overlay at the original pose (PRD §10.2, §10.5)
+  const overlay = new VideoOverlay(video, cameras);
+  scene.add(overlay.mesh);
+
+  new MasterClock(video, shot, manifest.video.fps).subscribe((state) => {
+    rig.setFrame(state.frame);
+    overlay.setFrame(poseAt(cameras, state.frame));
+  });
   void video.play();
+
+  const timer = new THREE.Timer();
+  timer.connect(document);
+  renderer.setAnimationLoop(() => {
+    timer.update();
+    const dt = timer.getDelta();
+    rig.update(dt);
+    overlay.setMode(rig.mode);
+    overlay.update(dt);
+    renderer.render(scene, rig.camera);
+  });
 }
 
 async function main() {
