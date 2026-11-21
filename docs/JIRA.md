@@ -149,7 +149,7 @@ Gates are tracked as labels. A gate passes when every ticket carrying its label 
 | `gate-G1` | The viewer plays the hand-made test world in sync |
 | `gate-G2` | **Go/no-go:** one real clip's splat lines up with its video frames from the camera poses |
 | `gate-G3` | One person moves correctly in the world |
-| `gate-G4` | Four demo worlds meet NFR-01/02 |
+| `gate-G4` | Both demo worlds meet NFR-01/02 |
 | `gate-G5` | Devpost submitted, backup video recorded |
 
 ---
@@ -614,16 +614,16 @@ Gates are tracked as labels. A gate passes when every ticket carrying its label 
 
 #### K-05 · Demo clip shortlist and rights
 - **Owner:** Kevin · **P0** · Size S · Labels: `area-platform`, `demo` · Blocked by: none · PRD §12
-- Find 6 candidate clips that meet every rule in PRD §12: at least one real vlog with 1–2 people, one nature walk, one street or park scene. Confirm each one's rights (own, CC-BY or written permission) and note the window. Write them to `docs/clips.md` with credit lines.
+- Kevin hand-selects two clips that meet PRD §12: a walking vlog with 1–2 people and a scenic walk through a quiet park. Confirm each clip's rights (own, CC BY or written permission) and record its exact window and creator credit in `docs/clips.md`.
 - **Acceptance:**
-  - [ ] 6 clips with rights documented.
+  - [ ] Two hand-selected clips with exact windows, rights and creator credits documented.
   - [ ] Eric agrees they're reconstructable (good camera motion).
 
 #### E-11 · Bake the demo worlds
 - **Owner:** Eric · **P0** · Size L · Labels: `area-recon`, `demo`, `gate-G4` · Blocked by: E-08, A-06, A-08, K-05 · Soft deps: K-04 · PRD §12, NFR-01/06/07
-- Run all 6 clips end to end, review them with E-05/K-04, keep the best 4, upload them, and add them to `gallery.json`. Record timings and cost per clip in `docs/demo-worlds.md` and the ledger.
+- Run both hand-selected clips end to end, review them with E-05/K-04, upload them, and add them to `gallery.json`. Record timings and cost per clip in `docs/demo-worlds.md` and the ledger.
 - **Acceptance:**
-  - [ ] 4 worlds live on the CDN, each meeting NFR-01/02.
+  - [ ] Both worlds live on the CDN, each meeting NFR-01/02.
   - [ ] Timings recorded.
 
 #### E-12 · Room-fill experiment (HY-World 2.0, then Marble)
@@ -635,7 +635,7 @@ Gates are tracked as labels. A gate passes when every ticket carrying its label 
 
 #### SH-14 · Offline demo bundle and cache pre-warm
 - **Owner:** Sharib · **P0** · Size S · Labels: `area-viewer`, `demo`, `gate-G4` · Blocked by: E-11 · PRD §7.4, NFR-01
-- Copy the 4 worlds into `web/public/worlds/`. One command serves the whole demo from localhost. Add a pre-warm script for the venue laptop.
+- Copy both worlds into `web/public/worlds/`. One command serves the whole demo from localhost. Add a pre-warm script for the venue laptop.
 - **Acceptance:**
   - [ ] The demo runs with Wi-Fi off.
 

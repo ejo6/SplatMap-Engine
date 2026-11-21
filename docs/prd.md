@@ -424,7 +424,7 @@ Rules:
 | Team Macs | Apple Silicon | — | Viewer, extension, web, DA3/Brush quick looks |
 
 - **Budget:** a working cap of **$60 out of pocket** (the team can change it). Eric keeps `docs/gpu-ledger.md` with one line per session: date, box, hours and cost.
-- **Estimate:** 6 candidate clips × about 1 h, plus about 10 h of setup and debugging, is roughly 16 GPU-hours, about $40 on an A100.
+- **Estimate:** Two clips at about 1 h each, plus about 10 h of setup and debugging, is roughly 12 GPU-hours, about $30 on an A100.
 - **Paid APIs:** Gemini on the free tier. Marble only through ticket E-12: one hero clip, $5 or less, API credits only, logged in the ledger. Stop the GPU box whenever it's idle.
 
 ---
@@ -439,7 +439,7 @@ A clip qualifies only if it meets all of these:
 - 1–3 clearly visible people, each covering less than about a third of the frame, with at least one front-facing moment each.
 - **Rights:** our own footage, a CC-BY video, or written permission from the creator. Credit is shown in the HUD and the gallery.
 
-Shortlist 6 candidates and keep the best 4: at least one real vlog with 1–2 people, one nature/scenery walk and one street or park scene.
+Kevin hand-selects two clips: a walking vlog with 1–2 people and a scenic walk through a quiet park. Use the vlog to showcase moving people and the park to showcase walkable space, the boundary, and fog. Start reconstruction with the park clip, using a continuous, well-lit take with clear camera translation. Record exact time windows and rights in `docs/clips.md`.
 
 **YouTube ToS framing:** this is a research prototype that only processes creator-permitted or openly licensed videos. A production version would be an opt-in creator feature. Downloading from datacenter IPs is often bot-blocked, so demo clips are downloaded and baked ahead of time.
 
@@ -495,7 +495,7 @@ Shortlist 6 candidates and keep the best 4: at least one real vlog with 1–2 pe
 | G1 | The viewer plays a hand-made test world in sync. | — |
 | G2 (go/no-go) | One real clip's splat lines up with its video frames from the camera poses. | Swap the clip or switch to Pi3X. |
 | G3 | One person moves correctly in the world. | Ship the people layer only. |
-| G4 | Four demo worlds meet NFR-01 and NFR-02. | — |
+| G4 | Both demo worlds meet NFR-01 and NFR-02. | — |
 | G5 | Devpost submitted and backup video recorded. | — |
 
 ---
