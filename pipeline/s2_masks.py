@@ -3,9 +3,10 @@
 SAM 3 video segmentation driven by the Gemini director's nouns:
   in : work/<id>/S0/frames/*.jpg           (K-01)
        work/<id>/S1/director.json          (K-03, optional; falls back to prompt "person")
-  out: work/<id>/S2/masks/o<objId>/NNNNN.png   per-instance mask, only frames where visible
-       work/<id>/S2/masks/union/NNNNN.png      every frame, all movers, dilated (255 = mover)
-       work/<id>/S2/tracks.json                instance ids, labels, visible ranges, boxes
+  out: work/<id>/S2/masks/o<objId>/<frame>.png   per-instance mask, only frames where visible
+       work/<id>/S2/masks/union/<frame>.png      every frame, all movers, dilated (255 = mover)
+       work/<id>/S2/tracks.json                  instance ids, labels, visible ranges, boxes
+  <frame> is the source frame's filename stem; frame numbers in tracks.json are 0-based sorted indices.
 Run in the `sam3` env:  python pipeline/s2_masks.py --work work/<youtubeId>
 """
 
@@ -105,10 +106,11 @@ def main():
         for i, mo in enumerate(model.propagate_in_video_iterator(inference_session=session)):
             o = processor.postprocess_outputs(session, mo)
             f = mo.frame_idx
+            png = frame_paths[f].stem + ".png"  # same name as the source frame, whatever S0's numbering
             prompt_of = {oid: p for p, ids in o["prompt_to_obj_ids"].items() for oid in ids}
             masks = o["masks"]
             union = masks.any(0) if len(masks) else torch.zeros(height, width, dtype=torch.bool)
-            save_mask(dilate(union.to(device), args.dilate), union_dir / f"{f:05d}.png")
+            save_mask(dilate(union.to(device), args.dilate), union_dir / png)
             for oid, m, box, score in zip(o["object_ids"].tolist(), masks, o["boxes"].tolist(), o["scores"].tolist()):
                 t = tracks.setdefault(oid, {"prompt": prompt_of.get(oid), "frames": [], "boxes": [], "scores": []})
                 t["frames"].append(f)
@@ -116,7 +118,7 @@ def main():
                 t["scores"].append(score)
                 inst_dir = out / "masks" / f"o{oid}"
                 inst_dir.mkdir(exist_ok=True)
-                save_mask(m, inst_dir / f"{f:05d}.png")
+                save_mask(m, inst_dir / png)
             if i % 30 == 0:
                 done = i + 1
                 progress(100 * done / n, round((time.time() - t0) / done * (n - done)))
