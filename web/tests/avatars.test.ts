@@ -64,3 +64,15 @@ test('contact shadow sits under the feet and fades as they rise', () => {
   jumping.setFrame(0);
   assert.equal((jumping.group.children[1] as THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>).material.opacity, 0);
 });
+
+test('opacity fades the skeleton and scales the contact shadow (A-11 blend)', () => {
+  const a = new Avatar(person(2, [[0, 1]]), motion(2, () => -1.05));
+  a.setFrame(0);
+  const shadow = a.group.children[1] as THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>;
+  const full = shadow.material.opacity;
+  a.opacity = 0.5;
+  assert.ok(Math.abs(shadow.material.opacity - full / 2) < 1e-9);
+  a.setFrame(1); // stays faded on the next frame
+  assert.ok(Math.abs(shadow.material.opacity - full / 2) < 1e-9);
+  assert.equal(((a.group.children[0] as THREE.LineSegments).material as THREE.LineBasicMaterial).opacity, 0.5);
+});

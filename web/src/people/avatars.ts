@@ -45,6 +45,8 @@ export class Avatar {
   private readonly shadow: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>;
   private readonly pairs: [number, number][];
   private readonly tmp = new THREE.Vector3();
+  private fade = 1; // A-11 blend weight
+  private shadowBase = 0.35;
 
   constructor(person: PersonFile, motion: Float32Array) {
     this.person = person;
@@ -53,7 +55,7 @@ export class Avatar {
     const positions = new Float32Array(this.pairs.length * 6);
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    this.bones = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color: 0xffd27a }));
+    this.bones = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color: 0xffd27a, transparent: true }));
     this.bones.frustumCulled = false;
 
     // Blob contact shadow on the y = 0 floor (FR-23).
@@ -89,7 +91,15 @@ export class Avatar {
       low = Math.min(low, this.tmp.y);
     }
     this.shadow.position.set(x, 0.005, z);
-    this.shadow.material.opacity = 0.35 * (1 - Math.min(Math.max(low / SHADOW_FADE_HEIGHT, 0), 1));
+    this.shadowBase = 0.35 * (1 - Math.min(Math.max(low / SHADOW_FADE_HEIGHT, 0), 1));
+    this.shadow.material.opacity = this.shadowBase * this.fade;
+  }
+
+  /** Overall opacity in [0, 1], for the view-dependent blend with the people layer (A-11). */
+  set opacity(v: number) {
+    this.fade = v;
+    (this.bones.material as THREE.LineBasicMaterial).opacity = v;
+    this.shadow.material.opacity = this.shadowBase * v;
   }
 }
 

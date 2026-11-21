@@ -1,22 +1,15 @@
 import * as THREE from 'three';
 import { slaveVideo } from '../clock';
 import { poseAt, type CameraMode, type CamerasFile } from '../camera';
-import { loadPeopleLayer, type PeopleLayerShot } from './holo';
+import { loadPeopleLayer, type PeopleLayer, type PeopleLayerShot } from './holo';
 import { loadAvatars, type Avatar } from './avatars';
+import { avatarWeight } from './blend';
 
-// People in the viewer (PRD §10.5): the people layer (A-10) near the original camera, avatars (A-09) off-axis.
-// P0 rule: hard switch at 15 degrees or 0.5 m from the original pose. A-11 replaces it with a 10-20 degree crossfade.
-
-const SWITCH_ANGLE_DEG = 15;
-const SWITCH_DIST_M = 0.5;
+// People in the viewer (PRD §10.5): the people layer (A-10) near the original camera, avatars (A-09) off-axis,
+// crossfaded between 10 and 20 degrees (A-11, blend.ts).
 
 export interface PeopleShot extends PeopleLayerShot {
   people?: { id: string; person: string }[];
-}
-
-/** Which representation to show for a viewer this far (angle between view directions, distance) from the original camera. */
-export function viewChoice(angleDeg: number, distM: number): 'layer' | 'avatars' {
-  return angleDeg <= SWITCH_ANGLE_DEG && distM <= SWITCH_DIST_M ? 'layer' : 'avatars';
 }
 
 export class People {
@@ -24,16 +17,18 @@ export class People {
   private readonly layerGroup = new THREE.Group();
   private readonly avatarGroup = new THREE.Group();
   private readonly avatars: Avatar[];
+  private readonly layer: PeopleLayer | null;
   private readonly cameras: CamerasFile;
   private frame = 0;
   private readonly forward = new THREE.Vector3();
   private readonly origForward = new THREE.Vector3();
   private readonly position = new THREE.Vector3();
 
-  constructor(avatars: Avatar[], layerMesh: THREE.Object3D | null, cameras: CamerasFile) {
+  constructor(avatars: Avatar[], layer: PeopleLayer | null, cameras: CamerasFile) {
     this.avatars = avatars;
+    this.layer = layer;
     this.cameras = cameras;
-    if (layerMesh) this.layerGroup.add(layerMesh);
+    if (layer) this.layerGroup.add(layer.mesh);
     for (const a of avatars) this.avatarGroup.add(a.group);
     this.group.add(this.layerGroup, this.avatarGroup);
   }
@@ -54,9 +49,11 @@ export class People {
     camera.getWorldDirection(this.forward);
     this.origForward.set(0, 0, -1).applyQuaternion(orig.quaternion);
     const angle = THREE.MathUtils.radToDeg(this.forward.angleTo(this.origForward));
-    const choice = viewChoice(angle, camera.getWorldPosition(this.position).distanceTo(orig.position));
-    this.layerGroup.visible = choice === 'layer';
-    this.avatarGroup.visible = choice === 'avatars'; // movers without an avatar (animals, cars) fade out here: known limit
+    const w = avatarWeight(angle, camera.getWorldPosition(this.position).distanceTo(orig.position));
+    this.layerGroup.visible = w < 1;
+    this.avatarGroup.visible = w > 0;
+    if (this.layer) this.layer.opacity = 1 - w; // movers without an avatar (animals, cars) fade out: known limit
+    for (const a of this.avatars) a.opacity = w;
   }
 }
 
@@ -64,5 +61,5 @@ export class People {
 export async function loadPeople(base: string, shot: PeopleShot, master: HTMLVideoElement, fps: number, cameras: CamerasFile) {
   const [layer, avatars] = await Promise.all([loadPeopleLayer(base, shot), loadAvatars(base, shot.people ?? [])]);
   if (layer) slaveVideo(master, layer.video, fps);
-  return new People(avatars, layer?.mesh ?? null, cameras);
+  return new People(avatars, layer, cameras);
 }
