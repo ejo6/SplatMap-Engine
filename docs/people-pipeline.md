@@ -100,3 +100,14 @@ Stages S2, S6, S7 and S8 from PRD §7.2. Each reads and writes `work/<youtubeId>
   - `S6/people/p<k>/motion.bin`: float32 little-endian, shape `(frameCount, 55, 3, 4)`, row-major, indexed by **shot frame**. Frames outside the person's span repeat the edge pose; they're hidden via `visible`. `motion[f][j]` maps a point in the person's **rest space** (their shaped SMPL-X T-pose, metres, **unscaled**) to world, so linear-blend skinning is `Σ w_j · motion[f][j] · [p_rest, 1]`.
   - `S6/people/p<k>/person.json`: `{id, label, avatar: null, joints: 55, skeleton: "smplx55", parents, restJoints, motion: {url, frameCount, layout}, visible, sourceInstance, scale, heightM}`. `p<k>` follows the sorted `S6/body` files. `avatar` is filled in later by S7/S9a.
 - **For A-06/A-07:** the avatar must live in the same rest space (this person's betas, unscaled SMPL-X T-pose) with SMPL-X joint order, so skin weights index these 55 joints directly.
+
+## Viewer: avatars and people switching `web/src/people/` (A-09)
+
+- **Wiring (`main.ts`):** `const people = await loadPeople(base, shot, video, fps, cameras)`, then `scene.add(people.group)`. Call `people.setFrame(frame)` from the clock bus and `people.update(rig.camera, rig.mode)` every render frame. A shot with neither `peopleLayer` nor `people` gives an empty group.
+- **`avatars.ts`:** `loadAvatars(base, shot.people)` fetches each `person.json` and its `motion.bin`.
+  - `Avatar.setFrame(f)` poses the person from `motion[f]` by **exact frame lookup**. There's no interpolation, so a seek or loop never blends toward frame 0; the pose holds until the clock moves (PRD §10.3).
+  - The avatar is hidden outside `visible`.
+  - A blob contact shadow sits on y = 0 under the feet and fades as they rise 0–0.5 m.
+  - **Placeholder rendering:** until A-07 picks `avatar.kind`, each person draws as a SMPL-X skeleton (joint-to-parent lines) driven by the same matrices. The real avatar plugs into `Avatar` and reads `motion` the same way.
+- **`index.ts` switching (P0, PRD §10.5):** in ride-along, return and scrub, both are hidden, because the video overlay already shows the real people. In walk mode, the view uses the people layer when it's within 15° (view-direction angle) **and** 0.5 m of the original camera, and avatars otherwise. A-11 replaces this hard switch with the 10–20° crossfade. The people-layer video is slaved to the master with SH-02's `slaveVideo`.
+- **Tests:** `cd web && npm test` runs `node --test tests/*.test.ts`. Node strips the TypeScript types, so no test framework is needed.

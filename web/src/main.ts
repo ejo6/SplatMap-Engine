@@ -5,6 +5,7 @@ import { CameraRig, poseAt, type CamerasFile } from './camera';
 import { VideoOverlay } from './overlay';
 import { createTransportUI, type ThumbsSprite } from './transport';
 import { ScrubController } from './scrub';
+import { loadPeople } from './people';
 import './style.css';
 
 // SH-01: viewer scaffold + world loader (PRD §7.4, §8, §10.8, FR-05)
@@ -103,9 +104,14 @@ async function loadWorld(manifest: Manifest, base: string) {
   const overlay = new VideoOverlay(video, cameras);
   scene.add(overlay.mesh);
 
+  // A-09/A-10: people layer + avatars (PRD §10.5); empty if the shot has neither.
+  const people = await loadPeople(base, shot, video, manifest.video.fps, cameras);
+  scene.add(people.group);
+
   new MasterClock(video, shot, manifest.video.fps).subscribe((state) => {
     rig.setFrame(state.frame);
     overlay.setFrame(poseAt(cameras, state.frame));
+    people.setFrame(state.frame);
   });
   void video.play();
 
@@ -124,6 +130,7 @@ async function loadWorld(manifest: Manifest, base: string) {
     rig.update(dt);
     overlay.setMode(rig.mode);
     overlay.update(dt);
+    people.update(rig.camera, rig.mode);
     renderer.render(scene, rig.camera);
   });
 }
