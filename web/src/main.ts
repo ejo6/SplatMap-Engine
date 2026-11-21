@@ -8,6 +8,7 @@ import { createTransportUI, type ThumbsSprite } from './transport';
 import { ScrubController } from './scrub';
 import { loadPeople } from './people';
 import type { WalkSdfGrid } from './walk-bounds';
+import { bindFogToggle, FogVolume } from './fog';
 import './style.css';
 
 // SH-01: viewer scaffold + world loader (PRD §7.4, §8, §10.8, FR-05)
@@ -34,14 +35,22 @@ interface Manifest {
   }[];
 }
 
-// SH-07: walk.json's own file spec (docs/world-format.md), beyond the `eyeHeight` SH-01 already read.
+// SH-07/SH-08: walk.json's own file spec (docs/world-format.md), beyond the `eyeHeight` SH-01 already read.
 interface WalkFile {
   eyeHeight: number;
+  fog?: { color: [number, number, number]; radius: number };
   sdf?: { url: string; origin: [number, number]; cellSize: number; width: number; height: number };
 }
 
+const DEFAULT_FOG_COLOR: [number, number, number] = [0.05, 0.05, 0.08];
+
+interface WalkBoundsResult {
+  sdf?: WalkSdfGrid;
+  colliders?: THREE.Object3D[];
+}
+
 /** Loads the SDF binary and colliders a shot's walk.json points to (both optional until E-06 runs). */
-async function loadWalkBounds(base: string, walkPath: string, walk: WalkFile, colliderPath?: string) {
+async function loadWalkBounds(base: string, walkPath: string, walk: WalkFile, colliderPath?: string): Promise<WalkBoundsResult> {
   const walkDir = base + walkPath.slice(0, walkPath.lastIndexOf('/') + 1);
 
   const sdf: WalkSdfGrid | undefined = walk.sdf
@@ -116,8 +125,14 @@ async function loadWorld(manifest: Manifest, base: string) {
     fetch(base + manifest.video.thumbs.index).then((r) => r.json() as Promise<ThumbsSprite>),
   ]);
   // SH-07: walk boundary - SDF damping/push/slide plus colliders (PRD §10.4, FR-22)
-  const bounds = walk && shot.bounds?.walk ? await loadWalkBounds(base, shot.bounds.walk, walk, shot.bounds.colliders) : {};
+  const bounds: WalkBoundsResult = walk && shot.bounds?.walk ? await loadWalkBounds(base, shot.bounds.walk, walk, shot.bounds.colliders) : {};
   const rig = new CameraRig(renderer.domElement, innerWidth / innerHeight, cameras, walk?.eyeHeight ?? DEFAULT_EYE_HEIGHT, bounds);
+
+  // SH-08: fog rendering + F toggle (PRD §10.4, FR-21)
+  const fogColor = new THREE.Color().fromArray(walk?.fog?.color ?? DEFAULT_FOG_COLOR);
+  const fog = new FogVolume(bounds.sdf, fogColor);
+  scene.add(fog.group);
+  bindFogToggle(fog);
 
   addEventListener('resize', () => {
     rig.camera.aspect = innerWidth / innerHeight;
