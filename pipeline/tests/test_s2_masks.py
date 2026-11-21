@@ -28,4 +28,4 @@ def test_load_prompts(tmp_path):
     p.write_text(json.dumps({"subjects": []}))
     assert load_prompts(p) == {"person": "person"}
     p.write_text(json.dumps({"subjects": [{"noun": "vlogger", "kind": "person"}, {"noun": "dog", "kind": "animal"}]}))
-    assert load_prompts(p) == {"vlogger": "person", "dog": "animal"}
+    assert load_prompts(p) == {"person": "person", "dog": "animal"}

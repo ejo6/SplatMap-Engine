@@ -8,7 +8,7 @@ Stages S2, S6, S7 and S8 from PRD §7.2. Each reads and writes `work/<youtubeId>
 - **Run:** `python pipeline/s2_masks.py --work work/<id> [--dilate 15] [--min-frames 10] [--force]`. It skips if `S2/tracks.json` exists. It prints JSON progress lines like `{"stage":"S2","pct":..,"eta":..}`.
 - **Inputs:**
   - `S0/frames/*.jpg`: every frame of the processed window, sorted by name.
-  - `S1/director.json` (optional): reads `subjects: [{noun, kind}]`, where `kind` is `person`, `animal` or `vehicle`. All nouns go to SAM 3 in one session. Without the file it uses the prompt `"person"`.
+  - `S1/director.json` (optional): reads `subjects: [{noun, kind}]`, where `kind` is `person`, `animal` or `vehicle`. SAM 3 always receives `"person"` plus any distinct animal and vehicle nouns in one session.
 - **Outputs:** mask PNGs use the same filename stem as the source frame in `S0/frames`. Frame numbers inside `tracks.json` are 0-based indices into the sorted frame list.
   - `S2/masks/union/<frame>.png`: one file for **every** frame. 255 means a mover (any instance, dilated by `--dilate` px). E-04 excludes this from both the RGB and depth losses.
   - `S2/masks/o<objId>/<frame>.png`: one mask per instance, written **only for frames where it's visible**, undilated. A missing file means not visible.
