@@ -91,7 +91,7 @@ Generate it with:
 cd web && node scripts/make-test-world.mjs
 ```
 
-This writes `worlds/test/v1/` at the repo root (git-ignored, like all pipeline output — rerun the script instead of committing the fixture). Requires `ffmpeg` on `PATH` and `web`'s npm deps installed (`npm i`).
+This writes `worlds/test/v1/` at the repo root (git-ignored, unlike the committed demo worlds — rerun the script instead of committing the fixture). Requires `ffmpeg` on `PATH` and `web`'s npm deps installed (`npm i`).
 
 What it builds, and where it's a simplification vs. the real pipeline:
 

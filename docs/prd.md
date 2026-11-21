@@ -528,7 +528,8 @@ Kevin hand-selects two clips: a walking vlog with 1–2 people and a scenic walk
 | `pipeline/` | Stage scripts `s0_ingest.py` … `s9_package.py`, runner `run.py`, env files `envs/*.yml` |
 | `config/` | `gemini.yaml`, pipeline defaults |
 | `docs/` | `world-format.md`, `gpu-setup.md`, `gpu-ledger.md`, `clips.md`, `demo-worlds.md` |
-| `work/`, `worlds/` | Git-ignored pipeline output |
+| `work/` | Git-ignored pipeline output (sources, frames, training files) |
+| `worlds/` | Packaged demo worlds, **committed** so the viewer works from a fresh clone (served via the `web/public/worlds` symlink). `*.ply` and `worlds/test/` stay ignored |
 
 ---
 
