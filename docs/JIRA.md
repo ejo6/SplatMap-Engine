@@ -103,7 +103,6 @@ The setup tickets point here. **Request gated access (SAM 3, SMPL-X) first, beca
 
 ```
 GEMINI_API_KEY=
-GEMINI_MODEL=               # pinned ID, mirrored in config/gemini.yaml
 S3_ENDPOINT=                # Vultr Object Storage endpoint
 S3_BUCKET=
 S3_ACCESS_KEY=

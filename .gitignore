@@ -1,0 +1,28 @@
+# secrets
+.env
+.env.*
+!.env.example
+*cookies*.txt
+
+# pipeline output (PRD §16)
+/work/
+/worlds/
+
+# model weights and body models (licensed, never commit)
+models/
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+*.onnx
+*.npz
+*.pkl
+
+# build / deps
+node_modules/
+dist/
+*.tsbuildinfo
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
