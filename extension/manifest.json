@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Step Into the Video",
+  "version": "0.1.0",
+  "description": "Open the 3D world for the YouTube video you are watching.",
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*", "https://youtube.com/*"],
+      "js": ["config.js", "content.js"],
+      "css": ["content.css"]
+    }
+  ]
+}

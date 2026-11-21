@@ -1,0 +1,24 @@
+#step-into-the-video-button {
+  align-self: center;
+  appearance: none;
+  background: var(--yt-spec-badge-chip-background, #eee);
+  border: 0;
+  border-radius: 18px;
+  color: var(--yt-spec-text-primary, #0f0f0f);
+  cursor: pointer;
+  flex-shrink: 0;
+  font: 500 14px/36px Roboto, Arial, sans-serif;
+  height: 36px;
+  margin-inline-start: 8px;
+  padding-inline: 16px;
+  white-space: nowrap;
+}
+
+#step-into-the-video-button:hover {
+  background: var(--yt-spec-10-percent-layer, #ddd);
+}
+
+#step-into-the-video-button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
