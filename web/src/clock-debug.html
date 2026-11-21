@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Clock debug</title>
+    <style>
+      body { margin: 0; background: #111; color: #ddd; font: 13px system-ui; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+      video { width: 480px; max-width: 100%; background: #000; }
+      #hud { white-space: pre; }
+    </style>
+  </head>
+  <body>
+    <div id="hud">Loading…</div>
+    <div>
+      <label>master <video id="master" controls muted></video></label>
+      <label>holo (slaved) <video id="holo"></video></label>
+    </div>
+    <script type="module" src="./clock-debug.ts"></script>
+  </body>
+</html>
