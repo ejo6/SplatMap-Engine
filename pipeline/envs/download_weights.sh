@@ -24,6 +24,9 @@ cd $W/src/LHM && [ -d pretrained_models/human_model_files ] || \
 V=$W/src/Video-Depth-Anything/checkpoints && mkdir -p $V && \
   ln -sf $(ls $HF_HOME/hub/models--depth-anything--Metric-Video-Depth-Anything-Small/snapshots/*/metric_video_depth_anything_vits.pth) $V/ \
   && echo "W_OK VDA metric small linked" || echo "W_FAIL VDA metric small link"
+[ -d train_data/motion_video ] || \
+  { wget -q https://virutalbuy-public.oss-cn-hangzhou.aliyuncs.com/share/aigc3d/data/LHM/motion_video.tar \
+    && tar --no-same-owner -xf motion_video.tar && rm motion_video.tar && echo "W_OK LHM sample motions" || echo "W_FAIL LHM sample motions"; }  # smoke test only
 
 C=$W/src/GVHMR/inputs/checkpoints && mkdir -p $C/body_models
 [ -f $C/gvhmr/gvhmr_siga24_release.ckpt ] || \

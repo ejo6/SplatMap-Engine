@@ -9,11 +9,12 @@ dependencies:
       - --extra-index-url https://download.pytorch.org/whl/cu126
       - torch==2.7.1
       - torchvision==0.22.1
-      - opencv-python
-      - einops
-      - pycocotools
+      - opencv-python==5.1.0.95
+      - einops==0.8.2
+      - pycocotools==2.0.11
       - decord==0.6.0
-      - psutil
+      - psutil==7.2.2
+      - setuptools==69.5.1   # sam3/model_builder.py imports pkg_resources
       # pipeline/s2_masks.py runs SAM 3 through transformers (Sam3VideoModel), not the repo's predictor
       - transformers==5.24.0
       - accelerate==1.13.0

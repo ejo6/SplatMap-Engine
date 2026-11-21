@@ -7,4 +7,4 @@ dependencies:
   - pip:
       - --extra-index-url https://download.pytorch.org/whl/cu121
       - torch==2.1.1+cu121
-      - simple-lama-inpainting
+      - simple-lama-inpainting==0.1.2
