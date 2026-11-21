@@ -44,6 +44,7 @@ def download(youtube_id, start, end, output, ffmpeg):
         sys.executable, "-m", "yt_dlp", "--ignore-config", "--no-playlist",
         "--ffmpeg-location", ffmpeg,
         "--download-sections", f"*{start:.9f}-{end:.9f}",
+        "--print", "after_move:%(title)j",
         "-f", "bv[height<=720][vcodec^=avc]+ba[ext=m4a]/b[height<=720][ext=mp4]/bv*[height<=720]+ba/b[height<=720]",
         "--merge-output-format", "mp4", "--remux-video", "mp4",
         "--socket-timeout", "20", "--retries", "1", "-o", str(output / "source.%(ext)s"),
@@ -65,6 +66,8 @@ def download(youtube_id, start, end, output, ffmpeg):
         if "no matching chapters" in detail or "cannot download the selected section" in detail:
             raise IngestError("video_unavailable", "The requested video window is unavailable.")
         raise IngestError("download_blocked", "yt-dlp could not download the requested window.")
+    title = result.stdout.strip().splitlines()
+    return json.loads(title[-1]) if title else None
 
 
 def encode(ffmpeg, output, duration):
@@ -137,11 +140,12 @@ def ingest(work, youtube_id, start, end, force):
             staging = Path(temp) / "new"
             staging.mkdir()
             progress(0)
-            download(youtube_id, start, end, staging, ffmpeg)
+            title = download(youtube_id, start, end, staging, ffmpeg)
             progress(35)
             frame_count = encode(os.environ.get("S0_ENCODER_FFMPEG", ffmpeg), staging, end - start)
             (staging / "ingest.json").write_text(json.dumps({
                 "inputs": inputs, "sourceStart": start, "fps": FPS, "frameCount": frame_count,
+                "title": title,
             }) + "\n")
             previous = Path(temp) / "previous"
             if output.exists():
