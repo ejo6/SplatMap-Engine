@@ -39,7 +39,7 @@ If a script doesn't exist yet, the run fails at that stage with `internal` and t
 - **Args:** `--work work/<id>` always. S0 also gets `--youtube-id <id>` and `--window a,b` (if given). `--force` is passed when the runner has decided the stage must re-run (it had run before, or the user passed `--force`). On a first run there's no `--force`, so a stage's own "outputs exist" skip still applies to outputs made by a manual run.
 - **Outputs:** write under `work/<id>/<S-number>/` (substages share the folder, e.g. S3b writes into `S3/`).
 - **Progress:** print JSON lines `{"stage", "pct", "eta"}` to stdout. The runner re-emits them under its own stage name. All other output (logs, library noise) is passed to stderr.
-- **Errors:** exit non-zero. To pick a specific §9 error, print `{"error": "video_unavailable", "detail": "..."}` first. Otherwise the stage's default error is used, and the detail is the last 20 output lines.
+- **Errors:** exit non-zero. To pick a specific §9 error, print `{"error": "video_unavailable", "detail": "..."}` first. Otherwise the stage's default error is used, and the detail is the last 20 output lines (or the exit code if the stage printed nothing, e.g. OOM-killed).
 - **Python:** `$ENVS_DIR/<env>/bin/python` (default `/workspace/envs`, see `gpu-setup.md`). If that path doesn't exist, the runner's own Python is used (local dev).
 
 ## Skip logic

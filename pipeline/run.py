@@ -89,9 +89,10 @@ def run_stage(name, cmd):
         else:
             sys.stderr.write(line)
             tail.append(line.rstrip())
-    if proc.wait() == 0 and not error:
+    code = proc.wait()
+    if code == 0 and not error:
         return None
-    return error, detail or "\n".join(t for t in tail if t)[-2000:]
+    return error, detail or "\n".join(t for t in tail if t)[-2000:] or f"exit code {code}"
 
 
 def main():
