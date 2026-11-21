@@ -160,7 +160,10 @@ def main():
         render, alpha, info = rasterization(
             params["means"], F.normalize(params["quats"], dim=-1), torch.exp(params["scales"]),
             torch.sigmoid(params["opacities"]), torch.cat([params["sh0"], params["shN"]], 1),
-            viewmats[j:j + 1], Kt, W, H, sh_degree=min(step // 1000, args.sh_degree), render_mode="RGB+ED", packed=False)
+            viewmats[j:j + 1], Kt, W, H, sh_degree=min(step // 1000, args.sh_degree), render_mode="RGB+ED", packed=False,
+            # Random background: any see-through gap shows a random colour and is penalized, so the splat has to be
+            # opaque everywhere the frame has content. With a black background, dark mist got faked by dark floaters.
+            backgrounds=torch.rand(1, 3, device=dev))
         rgb = render[..., :3] * keep + gt * (1 - keep)  # movers: no error, no gradient
         l1 = (rgb - gt).abs().mean()
         ssim = ssim_map(rgb.permute(0, 3, 1, 2), gt.permute(0, 3, 1, 2)).mean()
