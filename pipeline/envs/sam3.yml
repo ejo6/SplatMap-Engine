@@ -8,7 +8,9 @@ dependencies:
   - pip:
       - --extra-index-url https://download.pytorch.org/whl/cu128
       - torch==2.10.0
+      - torchvision==0.25.0  # required by Sam3VideoProcessor
       - transformers==5.24.0
+      - kernels==0.18.3  # without it SAM 3 skips NMS (duplicate tracks), hole filling and sprinkle removal
       - accelerate==1.13.0
       - pillow==12.1.0
       - numpy==2.3.5
