@@ -1,0 +1,4 @@
+google-genai==3.6.1
+httpx2==2.16.2
+pydantic==2.14.4
+PyYAML==6.0.3
