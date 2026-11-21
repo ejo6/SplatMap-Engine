@@ -16,7 +16,7 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const app = document.querySelector('#app')!;
 app.innerHTML = `
 <svg class="defs" aria-hidden="true" focusable="false">
-  <filter id="ripple" x="0" y="0" width="100%" height="100%">
+  <filter id="ripple" x="-4%" y="-4%" width="108%" height="108%">
     <feTurbulence type="fractalNoise" baseFrequency="0.004 0.09" numOctaves="2" seed="4" result="noise" />
     <feDisplacementMap in="SourceGraphic" in2="noise" scale="6" xChannelSelector="R" yChannelSelector="G" />
   </filter>
