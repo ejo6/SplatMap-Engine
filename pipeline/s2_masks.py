@@ -12,10 +12,14 @@ Run in the `sam3` env:  python pipeline/s2_masks.py --work work/<youtubeId>
 
 import argparse
 import json
+import os
 import shutil
 import sys
 import time
 from pathlib import Path
+
+# Less fragmentation on long clips with many objects (KAN-76). Must be set before CUDA initialises.
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 import numpy as np
 import torch
@@ -67,6 +71,8 @@ def main():
     ap.add_argument("--work", required=True, type=Path, help="work/<youtubeId>")
     ap.add_argument("--dilate", type=int, default=15, help="union mask dilation in px (PRD: 10-20)")
     ap.add_argument("--min-frames", type=int, default=10, help="drop instances visible fewer frames (still in union)")
+    ap.add_argument("--max-objects", type=int, default=20,
+                    help="cap on tracked objects; SAM 3 keeps the highest-scoring detections (KAN-76: crowds OOM)")
     ap.add_argument("--force", action="store_true")
     args = ap.parse_args()
 
@@ -87,6 +93,8 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     dtype = torch.bfloat16 if device == "cuda" else torch.float32
     model = Sam3VideoModel.from_pretrained(MODEL_ID).to(device, dtype=dtype)
+    # Default is 10000 (no cap): a crowd makes the per-frame N x N mask IoU and tracker state blow GPU memory.
+    model.max_num_objects = args.max_objects
     processor = Sam3VideoProcessor.from_pretrained(MODEL_ID)
     # Frames live on CPU so a 60 s clip doesn't fill GPU memory.
     session = processor.init_video_session(
@@ -138,7 +146,7 @@ def main():
         })
     (out / "tracks.json").write_text(json.dumps({
         "width": width, "height": height, "frameCount": n,
-        "dilatePx": args.dilate, "prompts": prompts, "instances": instances,
+        "dilatePx": args.dilate, "maxObjects": args.max_objects, "prompts": prompts, "instances": instances,
     }))
     progress(100, 0)
 
