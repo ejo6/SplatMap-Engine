@@ -64,6 +64,7 @@ Stages S3–S5 and S9a from PRD §7.2. Each reads and writes `work/<youtubeId>/<
   - **Movers are excluded from both losses (FR-12):** inside the union mask, the rendered RGB is replaced by the target, so those pixels give no error and no gradient. DA3 depth is zeroed there.
   - Losses: 0.8·L1 + 0.2·(1−SSIM) on RGB, plus 0.1 × relative L1 between the rendered expected depth and DA3 depth at DA3 resolution, plus the MCMC opacity and scale regularizers (0.01 each).
   - MCMC densification capped at 1.5M splats (the PRD §10.8 LoD budget). It starts from 300k points back-projected from DA3 depth (beyond 80 m dropped), and SH degree 1.
+  - **Random background** each step. With a black background, gaps the splat could see through cost nothing in dark areas, so mist was faked with dark floaters. On the forest clip this removed the large dark blob at the path bend, with alignment PSNR unchanged (27.6 → 27.4). Faint dark patches where sky shows through the canopy remain.
   - Export: splats outside the init points' 0.5–99.5 percentile box (+10% margin) are cropped, then written as a standard 3DGS `S4/world.ply`.
 - **Outputs:** `S4/world.ply` and `S4/train.json` `{steps, seconds, splats, psnr, box}`. `psnr` is on non-mover pixels over the last 500 steps.
 - **Measured on the Tokyo-Walk sample** (61 keyframes, A40):
