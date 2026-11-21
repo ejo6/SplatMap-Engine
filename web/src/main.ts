@@ -1,11 +1,13 @@
 import * as THREE from 'three';
 import { SparkRenderer, SplatMesh } from '@sparkjsdev/spark';
 import { MasterClock, unmuteOnFirstGesture } from './clock';
+import { CameraRig, type CamerasFile } from './camera';
 import './style.css';
 
 // SH-01: viewer scaffold + world loader (PRD §7.4, §8, §10.8, FR-05)
 
 const PIPELINE_VERSION = 1;
+const DEFAULT_EYE_HEIGHT = 1.6; // PRD §10.2, used if a shot has no walk.json yet
 const app = document.getElementById('app')!;
 
 function setStatus(text: string) {
@@ -14,7 +16,14 @@ function setStatus(text: string) {
 
 interface Manifest {
   video: { url: string; fps: number };
-  shots: { id: string; start: number; frameCount: number; world: { rad?: string; spz?: string } }[];
+  shots: {
+    id: string;
+    start: number;
+    frameCount: number;
+    world: { rad?: string; spz?: string };
+    cameras: string;
+    bounds?: { walk?: string };
+  }[];
 }
 
 async function resolveManifest(youtubeId: string): Promise<{ manifest: Manifest; base: string } | null> {
@@ -52,7 +61,6 @@ async function loadWorld(manifest: Manifest, base: string) {
   }
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.01, 1000);
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); // NFR DPR cap, PRD §10.8
   renderer.setSize(innerWidth, innerHeight);
@@ -64,13 +72,28 @@ async function loadWorld(manifest: Manifest, base: string) {
   const world = new SplatMesh({ url: base + worldPath, maxSplats: lodBudget() });
   scene.add(world);
 
+  // SH-03: camera modes - ride-along, walk, return (PRD §10.2, FR-16-18)
+  const [cameras, walk] = await Promise.all([
+    fetch(base + shot.cameras).then((r) => r.json() as Promise<CamerasFile>),
+    shot.bounds?.walk
+      ? fetch(base + shot.bounds.walk).then((r) => r.json() as Promise<{ eyeHeight: number }>)
+      : Promise.resolve(undefined),
+  ]);
+  const rig = new CameraRig(renderer.domElement, innerWidth / innerHeight, cameras, walk?.eyeHeight ?? DEFAULT_EYE_HEIGHT);
+
   addEventListener('resize', () => {
-    camera.aspect = innerWidth / innerHeight;
-    camera.updateProjectionMatrix();
+    rig.camera.aspect = innerWidth / innerHeight;
+    rig.camera.updateProjectionMatrix();
     renderer.setSize(innerWidth, innerHeight);
   });
 
-  renderer.setAnimationLoop(() => renderer.render(scene, camera));
+  const timer = new THREE.Timer();
+  timer.connect(document);
+  renderer.setAnimationLoop(() => {
+    timer.update();
+    rig.update(timer.getDelta());
+    renderer.render(scene, rig.camera);
+  });
 
   // SH-02: the master video is the only clock; every other layer reads its bus (PRD §10.1, FR-15).
   const video = document.createElement('video');
@@ -79,7 +102,7 @@ async function loadWorld(manifest: Manifest, base: string) {
   video.playsInline = true;
   video.autoplay = true;
   unmuteOnFirstGesture(video);
-  new MasterClock(video, shot, manifest.video.fps);
+  new MasterClock(video, shot, manifest.video.fps).subscribe((state) => rig.setFrame(state.frame));
   void video.play();
 }
 
