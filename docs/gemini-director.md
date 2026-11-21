@@ -6,8 +6,12 @@ Run after S0 and S1a in the ingest environment:
 python pipeline/run.py --youtube-id VIDEO_ID --stages S1b
 ```
 
-With `GEMINI_API_KEY` exported, the director sends `S0/video.mp4` and the detected shot ranges to Gemini. Run it only on clips approved for that upload. The input is the S0 window, which is at most 60 seconds. To analyze a different part of a long source, rerun S0 with a different `--window`.
+S1a owns the reconstruction window. S1b always writes that window and a baseline `person` prompt to `S1/director.json`. With `GEMINI_API_KEY` exported, S1b sends `S0/video.mp4` and the chosen shot to Gemini for a scene card and optional animal and vehicle hints. Run it only on clips approved for that upload.
 
-`S1/director.json` contains shot suitability with reasons, the chosen shot ID and playback window, time ranges and segmentation nouns for people, animals, and vehicles, and a scene card with a title and two sentences. The existing SAM 3 stage reads each subject's noun and kind. The director uses the detected frame-aligned shot boundaries for its selection.
+When the key is absent or Gemini fails, S1b writes a local scene card using the S0 title. Older S0 outputs use the video ID. SAM 3 always uses its generic person prompt and adds distinct animal and vehicle nouns from the director output if present. Multiple person nouns would risk duplicate tracks for the same people.
 
-If the key is unset, the request fails, or the response is invalid, the director selects the S1a default shot, uses the prompt `person`, and titles the card from S0 metadata. Older S0 outputs use the video ID as a title. A valid Gemini assessment with no usable shots returns `no_usable_shot`. Use `--force` to compare Gemini and fallback runs.
+To verify the no-key path when a cached result exists:
+
+```bash
+env -u GEMINI_API_KEY python pipeline/run.py --youtube-id VIDEO_ID --stages S1b --force
+```

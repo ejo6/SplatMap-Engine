@@ -1,8 +1,8 @@
 """S2 Masks (PRD §7.2, ticket A-01 / KAN-36).
 
-SAM 3 video segmentation driven by the Gemini director's nouns:
+SAM 3 video segmentation with a baseline person prompt and optional mover hints:
   in : work/<id>/S0/frames/*.jpg           (K-01)
-       work/<id>/S1/director.json          (K-03, optional; falls back to prompt "person")
+       work/<id>/S1/director.json          (K-03, optional animal and vehicle hints)
   out: work/<id>/S2/masks/o<objId>/<frame>.png   per-instance mask, only frames where visible
        work/<id>/S2/masks/union/<frame>.png      every frame, all movers, dilated (255 = mover)
        work/<id>/S2/tracks.json                  instance ids, labels, visible ranges, boxes
@@ -35,13 +35,16 @@ def progress(pct, eta=None):
 
 
 def load_prompts(director_path):
-    """Return {noun: kind}. Expects director.json `subjects: [{noun, kind}]`; kind is person|animal|vehicle."""
+    """Return the person prompt plus optional animal and vehicle hints."""
+    prompts = {"person": "person"}
     if director_path.exists():
         subjects = json.loads(director_path.read_text()).get("subjects", [])
-        prompts = {s["noun"]: s.get("kind", "person") for s in subjects if s.get("noun")}
-        if prompts:
-            return prompts
-    return {"person": "person"}  # PRD §7.3 fallback
+        for subject in subjects:
+            noun = subject.get("noun", "").strip().lower()
+            kind = subject.get("kind")
+            if noun and kind in {"animal", "vehicle"}:
+                prompts.setdefault(noun, kind)
+    return prompts
 
 
 def to_ranges(frames):

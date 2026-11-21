@@ -15,36 +15,32 @@ VIDEO = Path("video.mp4")
 
 class DirectorTest(unittest.TestCase):
     @patch.dict(os.environ, {"GEMINI_API_KEY": ""})
-    def test_missing_key_uses_default_shot_person_and_title(self):
+    def test_missing_key_preserves_selection_person_and_title(self):
         result = direct(VIDEO, DATA, "Source title")
         self.assertEqual(result["source"], "fallback")
+        self.assertEqual(result["selectedShotId"], "s1")
         self.assertEqual(result["window"], {"start": 20, "end": 45})
         self.assertEqual(result["subjects"], [
-            {"noun": "person", "kind": "person", "start": 20, "end": 45},
+            {"noun": "person", "kind": "person", "start": 0, "end": 45},
         ])
         self.assertEqual(result["sceneCard"]["title"], "Source title")
 
     @patch("pipeline.s1_director.generate_json")
-    def test_uses_exact_detected_boundaries_and_passes_segmentation_nouns(self, generate):
+    def test_scene_card_and_mover_hints_keep_the_default_window(self, generate):
         generate.return_value = Direction.model_validate({
-            "shots": [{"id": "s0", "usable": True, "reason": "Camera moves."},
-                      {"id": "s1", "usable": False, "reason": "Camera zooms."}],
-            "selectedShotId": "s0",
-            "subjects": [{"noun": "person", "kind": "person", "start": 2, "end": 7}],
-            "sceneCard": {"title": "Park", "sentences": ["A person walks.", "The path turns."]},
+            "subjects": [
+                {"noun": "Vlogger", "kind": "person", "start": 2, "end": 7},
+                {"noun": " Dog ", "kind": "animal", "start": 38, "end": 46},
+                {"noun": "Car", "kind": "vehicle", "start": 47, "end": 49},
+            ],
+            "sceneCard": {"title": "Park", "sentences": ["A path turns.", "Trees line it."]},
         })
         result = direct(VIDEO, DATA, "Source title")
         self.assertEqual(result["source"], "gemini")
-        self.assertEqual(result["window"], {"start": 0, "end": 20})
-        self.assertEqual(result["subjects"][0]["noun"], "person")
+        self.assertEqual(result["window"], {"start": 20, "end": 45})
+        self.assertEqual(result["sceneCard"]["title"], "Park")
+        self.assertEqual(result["subjects"], [
+            {"noun": "person", "kind": "person", "start": 0, "end": 45},
+            {"noun": "dog", "kind": "animal", "start": 38, "end": 45},
+        ])
         self.assertEqual(generate.call_args.kwargs["media"], [VIDEO])
-
-    @patch("pipeline.s1_director.generate_json")
-    def test_unknown_shot_uses_fallback(self, generate):
-        generate.return_value = Direction.model_validate({
-            "shots": [{"id": "unknown", "usable": True, "reason": "Camera moves."}],
-            "selectedShotId": "unknown",
-            "subjects": [],
-            "sceneCard": {"title": "Park", "sentences": ["A path turns.", "Trees line it."]},
-        })
-        self.assertEqual(direct(VIDEO, DATA, "Source title")["source"], "fallback")

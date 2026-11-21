@@ -257,16 +257,15 @@ Gates are tracked as labels. A gate passes when every ticket carrying its label 
 
 #### K-03 · Gemini director (S1b)
 - **Owner:** Kevin · **P0** · Size M · Labels: `area-platform`, `gemini`, `pipeline` · Blocked by: K-02, S-08 · PRD §7.3, FR-10, FR-27
-- Send the clip and `shots.json` to Gemini. Get back:
-  - usable/unusable per shot, with a reason;
-  - the chosen window of 60 s or less for long videos;
-  - every person, animal and vehicle with time ranges and a short noun (these become SAM 3 prompts);
+- Use the S1a selection and always provide a baseline `person` prompt. Optionally send the clip and selection to Gemini for:
+  - extra animal and vehicle nouns with approximate time ranges;
   - the scene card (title plus 2 sentences).
 
   Write `director.json`. Fallbacks are as in PRD §7.3.
 - **Acceptance:**
-  - [ ] On 3 test clips, the prompt list covers every visible person.
-  - [ ] The fallback works with the API key removed.
+  - [ ] Gemini produces a usable scene card and supplemental hints where applicable.
+  - [ ] The S1a window and baseline person prompt survive without an API key.
+  - [ ] A demo world bakes with Gemini disabled.
 
 #### K-04 · Gemini quality gate (S9b)
 - **Owner:** Kevin · **P1** · Size M · Labels: `area-platform`, `gemini` · Blocked by: E-05, S-08 · PRD §7.3, FR-29

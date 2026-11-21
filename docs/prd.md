@@ -45,7 +45,7 @@ On any YouTube watch page, a **Step inside** button sits next to Like. Clicking 
   - fog over unseen space and a walk boundary;
   - people as animated 3D avatars blended with real video pixels.
 - Scene cuts: one world per video from its longest usable shot (P0). One world per shot with a fog crossfade (P1).
-- Gemini director and quality gate (P0 director, P1 gate).
+- Optional Gemini scene cards and segmentation hints (P0), plus a quality gate (P1). The demo must bake without Gemini.
 
 **Non-goals**
 
@@ -116,7 +116,7 @@ Areas: EXT = extension, WEB = landing page, API, PIPE = pipeline, VIEW = viewer,
 | FR-07 | A job reports `status`, `stage`, `pct`, `etaSeconds`, `sceneCard` and `error` (§9). The viewer shows them on a progress screen and opens the world when it's ready. | P1 | API/VIEW |
 | FR-08 | Every failure carries a readable reason from the enum in §9. | P1 | API |
 | FR-09 | The pipeline runs as an idempotent CLI. Each stage skips if its outputs already exist and are valid. Stages emit progress events. | P0 | PIPE |
-| FR-10 | The pipeline detects shot cuts. For P0 it selects the longest usable shot of 60 s or less. For videos over 60 s, Gemini picks the window. | P0 | PIPE/GEM |
+| FR-10 | The pipeline detects shot cuts. For P0 it selects the longest usable shot of 60 s or less. For longer sources, S0 processes the supplied window or the first 60 seconds. | P0 | PIPE/GEM |
 | FR-11 | The pipeline outputs a world package that matches §8 exactly. | P0 | PIPE |
 | FR-12 | The background splat excludes all masked movers from **both** the RGB and the depth losses. | P0 | PIPE |
 | FR-13 | Every tracked person gets an avatar, a per-frame motion track in world space with feet on the floor, and visible-frame ranges. | P0 | PPL |
@@ -133,7 +133,7 @@ Areas: EXT = extension, WEB = landing page, API, PIPE = pipeline, VIEW = viewer,
 | FR-24 | View-dependent blend between the people layer and the avatars. | P1 | VIEW/PPL |
 | FR-25 | When `t` is outside the reconstructed shot, show the video on a panel in fog (P0). Multi-shot worlds crossfade through fog at cuts (P1). | P0/P1 | VIEW |
 | FR-26 | HUD with a controls hint, scene title, Gemini scene card and **creator credit** (always visible in a corner). | P0 | VIEW |
-| FR-27 | The Gemini director produces `director.json`: shot labels (usable or not), the chosen window, prompts for every person, animal and vehicle, and the scene card. | P0 | GEM |
+| FR-27 | The director produces `director.json` with the S1a window, a baseline person prompt, and a scene card. Gemini can enrich the card and add optional animal and vehicle hints. | P0 | GEM |
 | FR-28 | Gemini picks each person's identity frame (clearest front-facing, unoccluded view, cropped inside that person's mask). | P0 | GEM/PPL |
 | FR-29 | The Gemini quality gate compares 6–8 rendered views with the source frames and writes `qa` into the manifest (pass, warn or fail, plus notes, plus a suggested fog radius). | P1 | GEM |
 | FR-30 | Ghost line showing the original camera path in walk mode. | P1 | VIEW |
@@ -187,7 +187,7 @@ These are for one 60 s, 720p, 30 fps single-shot clip with 3 or fewer people on 
 | Stage | What it does | Tools | Main outputs | Est. time | Owner |
 |---|---|---|---|---|---|
 | S0 Ingest | Download (window only), normalize to 1280×720 at 30 fps, playback encode with a short GOP, thumbnail sprite, extract frames | yt-dlp (+ Deno, PO-token plugin), ffmpeg | `source.mp4`, `video.mp4`, `frames/`, `thumbs.jpg/json` | 1–3 min | Kevin |
-| S1 Shots + Director | Cut detection, then Gemini labels shots, picks the window, lists people and movers, writes the scene card | PySceneDetect (content detector), Gemini | `shots.json`, `director.json` | 1–2 min | Kevin |
+| S1 Shots + Director | Cut detection and default shot selection, then optional Gemini scene card and extra segmentation hints | PySceneDetect (content detector), Gemini | `shots.json`, `director.json` | 1–2 min | Kevin |
 | S2 Masks | Per-instance video masks and IDs from Gemini prompts (fallback prompt "person"). Union mask dilated 10–20 px. | SAM 3 | `masks/<instance>/`, `masks/union/`, `tracks.json` | 5–10 min | Adam |
 | S3 Cameras + Depth | Poses, intrinsics and depth on keyframes at 5 fps (about 300), then interpolate to every frame (slerp rotation, lerp position) | Depth Anything 3 (Pi3X fallback) | raw cameras, keyframe depth | 2–5 min | Eric |
 | S3b World frame | Fit the floor plane, then transform everything so the floor is y = 0, +Y is up, units are metres. Convert to three.js camera convention. | custom | `cameras.json`, `world_transform.json` | <1 min | Eric |
@@ -210,7 +210,7 @@ Use the latest Gemini Flash model with video input. Pin the exact model ID in `c
 
 | Role | Input | Output | Fallback |
 |---|---|---|---|
-| Director (P0) | Clip + `shots.json` | Usable shots, chosen window (start, end), list of people/animals/vehicles with timestamps → SAM prompts, scene card (title + 2 sentences) | Longest shot, prompt "person", title from YouTube |
+| Director (P0) | Clip + `shots.json` | Scene card (title + 2 sentences), optional animal and vehicle hints → SAM prompts. S1a supplies the reconstruction window. | Longest shot, prompt "person", title from YouTube |
 | Identity frame (P0) | Per-person candidate crops | Best frame index per person | Largest unoccluded mask area |
 | Quality gate (P1) | 6–8 renders (centre path + offsets) + matching source frames | `pass`/`warn`/`fail`, notes, suggested fog radius | Skip; manifest `qa.verdict = "unchecked"` |
 | Scale sanity (P2) | Frames with known-size objects | Expected scale range | None |
@@ -471,7 +471,7 @@ Kevin hand-selects two clips: a walking vlog with 1–2 people and a scenic walk
 | Stage | Plan A | Plan B | Plan C |
 |---|---|---|---|
 | Download | yt-dlp (latest) + Deno + PO-token plugin | + cookies from a throwaway account | Pre-downloaded demo files only |
-| Shots | PySceneDetect + Gemini | PySceneDetect only | Hand-picked single shot |
+| Shots | PySceneDetect | Hand-picked single shot | — |
 | Masks | SAM 3 with Gemini prompts | SAM 3 with prompt "person" | Per-frame instance segmentation + tracker |
 | Cameras | DA3 global solve | DA3 chunks + similarity alignment, or Pi3X | VGGT / COLMAP on keyframes |
 | Background | gsplat with masked losses + fog | Brush | Swap the clip |
