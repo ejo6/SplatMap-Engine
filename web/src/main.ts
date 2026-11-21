@@ -4,6 +4,7 @@ import { MasterClock, unmuteOnFirstGesture } from './clock';
 import { CameraRig, poseAt, type CamerasFile } from './camera';
 import { VideoOverlay } from './overlay';
 import { createTransportUI, type ThumbsSprite } from './transport';
+import { ScrubController } from './scrub';
 import './style.css';
 
 // SH-01: viewer scaffold + world loader (PRD §7.4, §8, §10.8, FR-05)
@@ -108,9 +109,12 @@ async function loadWorld(manifest: Manifest, base: string) {
   });
   void video.play();
 
+  // SH-06: scrub state machine (PRD §10.3, FR-20, NFR-04)
+  const scrub = await ScrubController.create(video, shot, manifest.video.fps, cameras, rig, overlay, base, thumbs);
+
   // SH-05: transport UI (PRD §10.7, FR-19)
   const shotStarts = manifest.shots.map((s) => s.start);
-  app.appendChild(createTransportUI(video, base, thumbs, shotStarts));
+  app.appendChild(createTransportUI(video, base, thumbs, shotStarts, scrub));
 
   const timer = new THREE.Timer();
   timer.connect(document);

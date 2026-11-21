@@ -15,7 +15,8 @@ export interface ClockState {
 
 export type ClockListener = (state: ClockState) => void;
 
-function shotFrame(t: number, shot: Shot, fps: number): number {
+/** The shot-relative frame for a media time (PRD §8.1), shared by anything that seeks directly. */
+export function shotFrame(t: number, shot: Shot, fps: number): number {
   return Math.min(Math.max(Math.round((t - shot.start) * fps), 0), shot.frameCount - 1);
 }
 

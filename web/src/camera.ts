@@ -10,11 +10,12 @@ export interface CamerasFile {
   frames: { f: number; c2w: number[] }[];
 }
 
-export type CameraMode = 'ride-along' | 'walk' | 'returning';
+export type CameraMode = 'ride-along' | 'walk' | 'returning' | 'scrubbing';
 
 const WALK_SPEED = 1.4; // m/s, PRD §10.2
 const RUN_SPEED = 3;
 const RETURN_MS = 400;
+const SCRUB_SMOOTH_TAU = 0.12; // seconds; PRD §10.3 says tween 300-500ms, this settles in about that window
 const LOOK_SPEED = 0.0025; // radians per pixel of mouse movement
 const PITCH_LIMIT = Math.PI / 2 - 0.01;
 const WASD_CODES = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD']);
@@ -60,6 +61,7 @@ export class CameraRig {
 
   private readonly returnFrom: Pose = { position: new THREE.Vector3(), quaternion: new THREE.Quaternion() };
   private returnElapsedMs = 0;
+  private scrubFrame = 0;
 
   constructor(canvas: HTMLElement, aspect: number, cameras: CamerasFile, eyeHeight: number) {
     this.canvas = canvas;
@@ -89,6 +91,18 @@ export class CameraRig {
   update(dtSeconds: number) {
     if (this.mode === 'returning') this.updateReturn(dtSeconds);
     else if (this.mode === 'walk') this.updateWalk(dtSeconds);
+    else if (this.mode === 'scrubbing') this.updateScrub(dtSeconds);
+  }
+
+  /** SCRUBBING (PRD §10.3): pointerdown on the seek bar, from any mode. Tweens to the drag pose. */
+  startScrub(frame: number) {
+    this.scrubFrame = frame;
+    this.mode = 'scrubbing';
+  }
+
+  /** Called on every drag move; the camera eases toward this pose (updateScrub), "locked" to it once caught up. */
+  setScrubFrame(frame: number) {
+    this.scrubFrame = frame;
   }
 
   private onKeyDown(e: KeyboardEvent) {
@@ -113,7 +127,7 @@ export class CameraRig {
 
   /** Any movement input leaves ride-along (FR-18), seeding the walk pose from where the camera is now. */
   private enterWalk() {
-    if (this.mode === 'walk') return;
+    if (this.mode === 'walk' || this.mode === 'scrubbing') return;
     this.walkPos.copy(this.camera.position).setY(this.eyeHeight);
     const euler = new THREE.Euler().setFromQuaternion(this.camera.quaternion, 'YXZ');
     this.yaw = euler.y;
@@ -123,13 +137,14 @@ export class CameraRig {
 
   /** C: an instant switch, unlike R's 400ms tween (PRD §10.7). */
   private toggleRideAlong() {
+    if (this.mode === 'scrubbing') return;
     if (this.mode === 'ride-along') this.enterWalk();
     else this.mode = 'ride-along';
   }
 
   /** R: tween to the current original pose over 400ms, without seeking (PRD §10.2). */
   private startReturn() {
-    if (this.mode === 'ride-along') return;
+    if (this.mode === 'ride-along' || this.mode === 'scrubbing') return;
     this.returnFrom.position.copy(this.camera.position);
     this.returnFrom.quaternion.copy(this.camera.quaternion);
     this.returnElapsedMs = 0;
@@ -165,6 +180,14 @@ export class CameraRig {
 
     this.camera.position.copy(this.walkPos);
     this.camera.quaternion.setFromEuler(new THREE.Euler(this.pitch, this.yaw, 0, 'YXZ'));
+  }
+
+  /** "Camera locked to pose at the drag time" (PRD §10.3): eases toward the scrub target each tick. */
+  private updateScrub(dtSeconds: number) {
+    const target = poseAt(this.cameras, this.scrubFrame);
+    const amount = 1 - Math.exp(-dtSeconds / SCRUB_SMOOTH_TAU);
+    this.camera.position.lerp(target.position, amount);
+    this.camera.quaternion.slerp(target.quaternion, amount);
   }
 
   private applyPose(pose: Pose) {

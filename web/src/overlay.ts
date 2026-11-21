@@ -5,6 +5,7 @@ import { type CamerasFile, type CameraMode, type Pose } from './camera';
 
 const DISTANCE = 2; // metres in front of the original camera
 const FADE_MS = 250; // PRD §10.2 walk row
+const SCRUB_OPACITY = 0.8; // PRD §10.3
 
 /** The plane's size at `DISTANCE` so its edges exactly match the original camera's frustum. */
 function frustumSizeAt(cameras: CamerasFile, distance: number) {
@@ -20,15 +21,23 @@ function frustumSizeAt(cameras: CamerasFile, distance: number) {
 export class VideoOverlay {
   readonly mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
 
+  private readonly videoTexture: THREE.VideoTexture;
   private opacity = 1;
   private targetOpacity = 1;
+  private mode: CameraMode = 'ride-along';
 
   constructor(video: HTMLVideoElement, cameras: CamerasFile) {
     const { width, height } = frustumSizeAt(cameras, DISTANCE);
-    const texture = new THREE.VideoTexture(video);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, toneMapped: false });
+    this.videoTexture = new THREE.VideoTexture(video);
+    this.videoTexture.colorSpace = THREE.SRGBColorSpace;
+    const material = new THREE.MeshBasicMaterial({ map: this.videoTexture, transparent: true, toneMapped: false });
     this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, height), material);
+  }
+
+  /** SCRUBBING swaps in a cheap sprite-thumbnail texture; `null` reverts to the live video (PRD §10.3). */
+  setTexture(texture: THREE.Texture | null) {
+    this.mesh.material.map = texture ?? this.videoTexture;
+    this.mesh.material.needsUpdate = true;
   }
 
   /** Drives the plane to the original pose for this shot frame, from the clock bus (PRD §10.1). */
@@ -38,9 +47,12 @@ export class VideoOverlay {
     this.mesh.quaternion.copy(pose.quaternion);
   }
 
-  /** 100% in ride-along/returning, fades out in walk; SH-06 will add the scrub levels. */
+  /** 100% in ride-along/returning, fades out in walk, 80% while scrubbing (PRD §10.2, §10.3). */
   setMode(mode: CameraMode) {
-    this.targetOpacity = mode === 'walk' ? 0 : 1;
+    this.targetOpacity = mode === 'walk' ? 0 : mode === 'scrubbing' ? SCRUB_OPACITY : 1;
+    // NFR-04: the overlay must appear within 100ms of starting a drag, faster than the normal fade.
+    if (mode === 'scrubbing' && this.mode !== 'scrubbing') this.opacity = SCRUB_OPACITY;
+    this.mode = mode;
   }
 
   update(dtSeconds: number) {
