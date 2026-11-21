@@ -519,12 +519,6 @@ Gates are tracked as labels. A gate passes when every ticket carrying its label 
   - [ ] 30 fps or more on integrated GPUs.
   - [ ] Results posted on the ticket.
 
-#### SH-16 · Mini-map (M)
-- **Owner:** Sharib · **P2** · Size S · Labels: `area-viewer` · Blocked by: SH-07 · FR-32
-- An overhead map showing the walkable area, the camera path and your position.
-- **Acceptance:**
-  - [ ] Toggles with M.
-
 #### SH-17 · Playback speed
 - **Owner:** Sharib · **P2** · Size S · Labels: `area-viewer` · Blocked by: SH-05 · FR-32
 - 0.5×, 1×, 1.5× and 2× through `playbackRate`. Slaved videos follow.
@@ -683,7 +677,7 @@ Gates are tracked as labels. A gate passes when every ticket carrying its label 
 |---|---|---|---|
 | Eric | S-03, S-07, S-09, E-01, E-02, E-03, E-04, E-05, E-06, E-08, E-11 | E-07, E-09, E-10 | E-12 |
 | Adam | S-02, A-01, A-02, A-03, A-04, A-05, A-06, A-07, A-08, A-09, A-10 | A-11 | — |
-| Sharib | S-04, SH-01, SH-02, SH-03, SH-04, SH-05, SH-06, SH-07, SH-08, SH-09, SH-12, SH-13, SH-14, SH-15 | SH-10, SH-11 | SH-16, SH-17, SH-18 |
+| Sharib | S-04, SH-01, SH-02, SH-03, SH-04, SH-05, SH-06, SH-07, SH-08, SH-09, SH-12, SH-13, SH-14, SH-15 | SH-10, SH-11 | SH-17, SH-18 |
 | Kevin | S-01, S-05, S-06, S-08, K-01, K-02, K-03, K-05, K-06, K-10, K-11, K-13 | K-04, K-07, K-08, K-09 | K-12, K-14 |
 
 **Critical path to G2 (go/no-go):** S-07 → E-01 → K-01 → (A-01 alongside E-02 → E-03) → E-04 → E-05.
