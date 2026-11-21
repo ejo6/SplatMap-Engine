@@ -53,3 +53,18 @@ Stages S2, S6, S7 and S8 from PRD §7.2. Each reads and writes `work/<youtubeId>
   - `S7/identity/<id>/cand_<frame>.png`: all candidate crops, kept for review.
   - `S7/identity/<id>/best.png`: the top-ranked crop.
   - `S7/identity.json`: `{persons: [{id, frame, ranked: [{frame, crop}], source: "gemini"|"fallback", reason}]}`. `ranked` is best first, and `crop` paths are relative to `S7/`. A-06 uses `best.png`, or the top few for LHM++.
+
+## Viewer: people layer `web/src/people/holo.ts` (A-10)
+
+- **API:** `const people = await loadPeopleLayer(base, shot)`. It returns `null` if the shot has no `peopleLayer`. Then `scene.add(people.mesh)`.
+  - `people.video` is the `holo.mp4` element. Slave it to the master clock (SH-02); nothing else drives it.
+  - The layer listens to that video's own `requestVideoFrameCallback`. It sets its pose (`cameras[frame].c2w`) and `near`/`far` for the frame **actually decoded**, so pose and pixels can't drift apart.
+  - `people.opacity` is for the A-11 blend. `people.frame` is the shot frame currently shown.
+- **Rendering:**
+  - A 256×144 vertex grid. The vertex shader decodes inverse depth from the bottom half of `holo.mp4` and back-projects each vertex through the intrinsics, in camera space using the three.js convention.
+  - Discards: vertices with value below 8, and any triangle touching a vertex whose 8 neighbours differ in depth by more than 1.08×. The flag is 0/1, so no slivers survive.
+  - The texture is read raw (NoColorSpace), because depth must not be gamma-converted.
+- **S8 depth smoothing:** monocular depth is noisy inside a person and bleeds background depth into the outline. That made the 1.08 test drop limbs even on-axis. `s8_people_layer.py` now box-blurs depth over **each instance's own mask** (kernel about W/40). This cut false discards from 688 to 71 grid cells on the bedroom clip, without merging two people's depths.
+- **Debug page:** `npm run dev` in `web/`, then open `/src/people/debug.html?world=<id>&yaw=<deg>&dx=<m>`.
+  - It needs `worlds/<id>/v1` copied into `web/public/worlds/` (not committed).
+  - `yaw=0&dx=0` is the original pose and should match the video exactly.
