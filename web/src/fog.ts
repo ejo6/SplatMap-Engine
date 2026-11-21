@@ -28,8 +28,17 @@ import { sampleSdf, type WalkSdfGrid } from './walk-bounds.ts';
 
 const EDGE_SOFTNESS = 1.5; // metres either side of the sdf=0 boundary over which fog ramps in
 const HEIGHT_FALLOFF = 1 / 3; // 1/metre; each higher layer is dimmer, so fog reads as ground mist, not sky tint
-const LAYER_HEIGHTS = [0.05, 0.3, 0.6, 1.0, 1.5, 2.2, 3.2]; // metres above the floor; more, closer-spaced layers read as a softer gradient than a few widely-spaced ones
+const LAYER_HEIGHTS = [0.05, 0.2, 0.4, 0.65, 0.95, 1.3, 1.75, 2.3, 3.0, 4.0]; // metres above the floor; more, closer-spaced layers read as a softer gradient than a few widely-spaced ones
 const SEGMENTS = 48; // per layer plane; fine enough for EDGE_SOFTNESS to read as a soft gradient
+// Additive blending sums every overlapping layer, so each layer's own colour is divided by the
+// layer count - the worst case (looking straight down a fully-fogged stack) then caps out at
+// roughly `fogColor`, instead of several times brighter.
+const LAYER_COLOR_SCALE = 1 / LAYER_HEIGHTS.length;
+// How far past the walk SDF's own grid the fog plane extends, in metres. Splats aren't
+// reconstructed anywhere near this far out, so the plane's own rectangular edge - which would
+// otherwise show up as a hard-edged slab against the sky or distant trees (see KAN-51 review
+// feedback) - ends up past where the world itself already fades to black.
+const OUTER_PAD = 60;
 
 export function smoothstep(edge0: number, edge1: number, x: number): number {
   const t = Math.min(Math.max((x - edge0) / (edge1 - edge0), 0), 1);
@@ -44,16 +53,18 @@ export function fogIntensity(sdf: WalkSdfGrid, x: number, y: number, z: number):
 
 /** A single horizontal fog layer, its vertex colours baked once from the SDF (PRD §10.4 "Splat fade" thresholds, adapted). */
 function buildLayerGeometry(sdf: WalkSdfGrid, y: number, color: THREE.Color): THREE.BufferGeometry {
-  const width = sdf.width * sdf.cellSize;
-  const depth = sdf.height * sdf.cellSize;
+  const width = sdf.width * sdf.cellSize + 2 * OUTER_PAD;
+  const depth = sdf.height * sdf.cellSize + 2 * OUTER_PAD;
+  const centerX = sdf.origin[0] + (sdf.width * sdf.cellSize) / 2;
+  const centerZ = sdf.origin[1] + (sdf.height * sdf.cellSize) / 2;
   const geometry = new THREE.PlaneGeometry(width, depth, SEGMENTS, SEGMENTS);
   geometry.rotateX(-Math.PI / 2);
-  geometry.translate(sdf.origin[0] + width / 2, y, sdf.origin[1] + depth / 2);
+  geometry.translate(centerX, y, centerZ);
 
   const position = geometry.attributes.position;
   const colors = new Float32Array(position.count * 3);
   for (let i = 0; i < position.count; i++) {
-    const intensity = fogIntensity(sdf, position.getX(i), y, position.getZ(i));
+    const intensity = fogIntensity(sdf, position.getX(i), y, position.getZ(i)) * LAYER_COLOR_SCALE;
     colors[i * 3] = color.r * intensity;
     colors[i * 3 + 1] = color.g * intensity;
     colors[i * 3 + 2] = color.b * intensity;
