@@ -10,6 +10,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 
 link() {  # per-pod setup: container disk is wiped on every new pod
   ln -sfn $W /data
+  mkdir -p ~/.ssh && touch ~/.ssh/authorized_keys && cat $W/authorized_keys 2>/dev/null | while read -r k; do grep -qF "$k" ~/.ssh/authorized_keys || echo "$k" >> ~/.ssh/authorized_keys; done  # teammates' keys
   apt-get install -y -qq git-lfs ffmpeg build-essential libgl1 libglib2.0-0 tmux >/dev/null
   grep -q HF_HOME ~/.bashrc || cat >> ~/.bashrc <<RC
 export PATH=$W/miniforge/bin:$W/deno/bin:\$PATH HF_HOME=$W/hf IMAGEIO_FFMPEG_EXE=/usr/bin/ffmpeg CONDA_PKGS_DIRS=$W/.cache/conda PIP_CACHE_DIR=$W/.cache/pip
@@ -22,8 +23,7 @@ build() {
   [ -d $p ] || mamba env create -y -q -p $p -f $HERE/$e.yml || return 1
   local pip="$p/bin/pip install -q"
   case $e in
-    recon) $pip -e $W/src/Depth-Anything-3 && $pip --no-deps -e $W/src/Pi3 \
-             && $pip gsplat ;;  # CUDA kernels JIT-compile on first use with the env nvcc (cuda-toolkit in recon.yml)
+    recon) $pip -e $W/src/Depth-Anything-3 && $pip --no-deps -e $W/src/Pi3 ;;
     sam3)  $pip -e $W/src/sam3 ;;
     people) $pip numpy==1.23.5 && $pip --no-build-isolation chumpy==0.70 \
              && $pip -r $W/src/GVHMR/requirements.txt && $pip -e $W/src/GVHMR ;;  # Multi-HMR runs from its repo dir; its deps are in people.yml
