@@ -12,6 +12,12 @@ export interface ThumbsSprite {
 
 const SEEK_STEP = 5; // seconds, PRD §10.7 arrow keys
 
+export interface Scrub {
+  start(t: number): void;
+  drag(t: number): void;
+  end(t: number): void;
+}
+
 function formatTime(seconds: number): string {
   seconds = Math.max(0, Math.floor(seconds || 0));
   const m = Math.floor(seconds / 60);
@@ -30,6 +36,7 @@ export function createTransportUI(
   thumbsBase: string,
   thumbs: ThumbsSprite,
   shotStarts: number[],
+  scrub: Scrub,
 ): HTMLElement {
   video.loop = true; // FR-19: loop at the end
 
@@ -80,13 +87,19 @@ export function createTransportUI(
   video.addEventListener('play', () => setPlaying(true));
   video.addEventListener('pause', () => setPlaying(false));
 
-  function layout() {
+  function renderAt(t: number) {
     const duration = video.duration || 0;
-    time.textContent = `${formatTime(video.currentTime)} / ${formatTime(duration)}`;
-    const pct = duration ? (video.currentTime / duration) * 100 : 0;
+    time.textContent = `${formatTime(t)} / ${formatTime(duration)}`;
+    const pct = duration ? (t / duration) * 100 : 0;
     progress.style.width = `${pct}%`;
     scrubber.style.left = `${pct}%`;
     if (duration) for (const tick of ticks) tick.el.style.left = `${(tick.start / duration) * 100}%`;
+  }
+  // While scrubbing (SH-06), the real video.currentTime is frozen until pointerup, so the bar
+  // is driven by the drag position directly instead (see the pointer handlers below).
+  let dragging = false;
+  function layout() {
+    if (!dragging) renderAt(video.currentTime);
   }
   video.addEventListener('timeupdate', layout);
   video.addEventListener('loadedmetadata', layout);
@@ -110,20 +123,25 @@ export function createTransportUI(
     preview.hidden = false;
   }
 
-  let dragging = false;
   bar.addEventListener('pointerdown', (e) => {
     dragging = true;
     bar.setPointerCapture(e.pointerId);
-    video.currentTime = timeAtClientX(e.clientX);
+    const t = timeAtClientX(e.clientX);
+    scrub.start(t);
+    renderAt(t);
     showPreviewAt(e.clientX);
   });
   bar.addEventListener('pointermove', (e) => {
-    if (dragging) video.currentTime = timeAtClientX(e.clientX);
+    if (!dragging) return showPreviewAt(e.clientX);
+    const t = timeAtClientX(e.clientX);
+    scrub.drag(t);
+    renderAt(t);
     showPreviewAt(e.clientX);
   });
   bar.addEventListener('pointerup', (e) => {
     dragging = false;
     bar.releasePointerCapture(e.pointerId);
+    scrub.end(timeAtClientX(e.clientX));
   });
   bar.addEventListener('pointerleave', () => {
     if (!dragging) preview.hidden = true;
