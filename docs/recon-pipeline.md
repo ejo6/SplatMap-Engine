@@ -71,3 +71,20 @@ Stages S3–S5 and S9a from PRD §7.2. Each reads and writes `work/<youtubeId>/<
   - Step time doesn't depend on clip length, so a 60 s clip should stay well under 30 min.
   - Renders at the source poses line up with the frames.
   - The main walker isn't baked in. Where she blocked the background for the whole clip there's a dark unseen smear; that's the hole E-07 (LaMa) fills.
+
+## Alignment check and QA renders: `pipeline/tools/align_check.py` (E-05, G2 gate)
+
+- **Run:** `python pipeline/tools/align_check.py --work work/<id> [--n 10]` in the `recon` env (export the CUDA vars first). It takes about 15 s.
+- **Alignment:**
+  - Renders `S4/world.ply` at n evenly spaced frames using `S3/cameras.json`. These include interpolated, non-keyframe poses.
+  - Compares each render with the source frame. PSNR and SSIM are computed on **non-mover pixels only** (S2 union mask).
+  - Writes `qa/align.json` `{frames:[{f, psnr, ssim}], psnr, ssim}` and `qa/align_sheet.jpg`. Each row of the sheet is source | render | 50/50 blend; in the blend, misalignment shows as doubled edges.
+- **QA views for K-04 (Gemini gate) and human review:** 8 renders.
+  - `path_25`, `path_50` and `path_75`: on the camera path.
+  - At the midpoint: `left_1m`, `right_1m`, `forward_1m` (moves in the camera's own frame), and `yaw_left_20` / `yaw_right_20` (turns about world +Y).
+  - Written as `qa/view_<name>.jpg` plus `qa/views.json` `[{name, file, c2w:[16]}]`, with three.js c2w.
+- **G2 reading:** look at the blend column. Static edges (signs, kerbs, building lines) should overlay crisply. Expect people to be missing from the render, and black where the background was never seen.
+- **Tokyo-Walk sample:**
+  - All 10 blends overlay crisply, so the S3 → S3b → S4 coordinate frames agree.
+  - Non-mover PSNR is 17–18 dB and SSIM 0.69–0.83 on 9 of 10 frames.
+  - Frame 389 scores 9.9 dB because it has no S2 mask (KAN-76), so S4 never trained on that view.
