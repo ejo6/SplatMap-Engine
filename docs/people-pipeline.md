@@ -16,6 +16,7 @@ Stages S2, S6, S7 and S8 from PRD §7.2. Each reads and writes `work/<youtubeId>
 - **Behaviour:**
   - Object IDs come from SAM 3 tracking and stay stable across the clip.
   - Instances seen in fewer than `--min-frames` frames are dropped from `tracks.json` but stay in the union mask.
+  - **Object cap** `--max-objects` (default 20, written to `tracks.json.maxObjects`): SAM 3's `max_num_objects` is otherwise 10000, and a crowded clip ran the A40 out of memory (KAN-76) in its N×N overlap check. Past the cap, SAM 3 keeps the highest-scoring new detections. Movers beyond the cap get **no mask**, so in a crowd some passers-by can be baked into the splat. Raise the cap if memory allows. The stage also sets `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`.
   - Person IDs `p0…` (PRD §8.4) are assigned later in S6, when tracks are matched one-to-one with body tracks.
 - **Memory (S2):** frames are kept on the CPU (`video_storage_device="cpu"`). A 60 s clip at 30 fps needs tens of GB of system RAM for the preprocessed frames; GPU memory is the model plus a small feature cache.
 
