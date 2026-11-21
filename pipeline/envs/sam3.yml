@@ -1,0 +1,15 @@
+# S2 masks (pipeline/s2_masks.py). SAM 3 via Hugging Face transformers; needs HF_TOKEN with facebook/sam3 access.
+# conda env create -f pipeline/envs/sam3.yml
+name: sam3
+channels: [conda-forge]
+dependencies:
+  - python=3.12
+  - pip
+  - pip:
+      - --extra-index-url https://download.pytorch.org/whl/cu128
+      - torch==2.10.0
+      - transformers==5.24.0
+      - accelerate==1.13.0
+      - pillow==12.1.0
+      - numpy==2.3.5
+      - pytest==9.0.1
