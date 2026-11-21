@@ -10,5 +10,5 @@ dependencies:
       - torch==2.3.0+cu121
       - torchvision==0.18.0+cu121
       - xformers==0.0.26.post1
-      - roma
+      - roma==1.8.0
       - pyrender==0.1.45

@@ -11,7 +11,8 @@ hf() { python -c "from huggingface_hub import snapshot_download as s; print(s('$
 
 hf depth-anything/DA3NESTED-GIANT-LARGE-1.1      # S3 cameras+depth (best quality)
 hf yyfz233/Pi3X                                  # S3 fallback solver
-hf depth-anything/Video-Depth-Anything-Large     # S8 people-layer depth
+hf depth-anything/Video-Depth-Anything-Large     # VDA smoke test (relative depth)
+hf depth-anything/Metric-Video-Depth-Anything-Small   # S8 people layer (pipeline/s8_people_layer.py), linked below
 hf naver/multiHMR_896_L                          # S6 tracker candidate
 hf 3DAIGC/LHM-1B-HF $W/src/LHM/pretrained_models/huggingface   # S7 avatars
 if [ -n "${HF_TOKEN:-}" ]; then hf facebook/sam3; else echo "W_SKIP facebook/sam3 (no HF_TOKEN)"; fi
@@ -19,6 +20,13 @@ if [ -n "${HF_TOKEN:-}" ]; then hf facebook/sam3; else echo "W_SKIP facebook/sam
 cd $W/src/LHM && [ -d pretrained_models/human_model_files ] || \
   { wget -q https://virutalbuy-public.oss-cn-hangzhou.aliyuncs.com/share/aigc3d/data/LHM/LHM_prior_model.tar \
     && tar --no-same-owner -xf LHM_prior_model.tar && rm LHM_prior_model.tar && echo "W_OK LHM prior" || echo "W_FAIL LHM prior"; }
+
+V=$W/src/Video-Depth-Anything/checkpoints && mkdir -p $V && \
+  ln -sf $(ls $HF_HOME/hub/models--depth-anything--Metric-Video-Depth-Anything-Small/snapshots/*/metric_video_depth_anything_vits.pth) $V/ \
+  && echo "W_OK VDA metric small linked" || echo "W_FAIL VDA metric small link"
+[ -d train_data/motion_video ] || \
+  { wget -q https://virutalbuy-public.oss-cn-hangzhou.aliyuncs.com/share/aigc3d/data/LHM/motion_video.tar \
+    && tar --no-same-owner -xf motion_video.tar && rm motion_video.tar && echo "W_OK LHM sample motions" || echo "W_FAIL LHM sample motions"; }  # smoke test only
 
 C=$W/src/GVHMR/inputs/checkpoints && mkdir -p $C/body_models
 [ -f $C/gvhmr/gvhmr_siga24_release.ckpt ] || \

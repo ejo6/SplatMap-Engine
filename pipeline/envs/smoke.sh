@@ -27,7 +27,9 @@ import torch; from pi3.models.pi3x import Pi3X; from pi3.utils.basic import load
 m=Pi3X.from_pretrained('yyfz233/Pi3X').to('cuda').eval(); x=load_images_as_tensor('$S/frames',interval=1).to('cuda')
 with torch.no_grad(), torch.amp.autocast('cuda',dtype=torch.bfloat16): r=m(x[None])
 print(r['camera_poses'].shape); $MEM" ;;
-gsplat) run gsplat $E/recon/bin/python -c "
+gsplat) R=$E/recon; T=$R/targets/x86_64-linux  # conda cuda-toolkit keeps headers under targets/
+  CUDA_HOME=$R CPATH=$T/include LIBRARY_PATH=$T/lib PATH=$R/bin:$PATH TORCH_CUDA_ARCH_LIST="8.6;9.0" TORCH_EXTENSIONS_DIR=$W/.cache/torch_extensions \
+  run gsplat $E/recon/bin/python -c "
 import torch; from gsplat import rasterization
 n=100000; d='cuda'; means=torch.randn(n,3,device=d,requires_grad=True); q=torch.randn(n,4,device=d); s=torch.full((n,3),-4.,device=d)
 o=torch.zeros(n,device=d); c=torch.rand(n,3,device=d,requires_grad=True)
@@ -45,6 +47,15 @@ lama) run lama $E/lama/bin/python -c "
 from simple_lama_inpainting import SimpleLama; from PIL import Image, ImageDraw
 im=Image.open('$S/frames/01.png').convert('RGB'); m=Image.new('L',im.size,0); ImageDraw.Draw(m).rectangle([500,200,780,700],fill=255)
 SimpleLama()(im,m).save('$S/lama.png'); print('saved')" ;;
+lhm) R=$E/lhm; T=$R/targets/x86_64-linux; M=$(ls -d $W/src/LHM/train_data/motion_video/*/smplx_params | head -1)
+  CUDA_HOME=$R CPATH=$T/include LIBRARY_PATH=$T/lib PATH=$R/bin:$PATH TORCH_CUDA_ARCH_LIST="8.6;9.0" TORCH_EXTENSIONS_DIR=$W/.cache/torch_extensions \
+  run lhm bash -c "cd $W/src/LHM && bash inference.sh LHM-1B-HF ./train_data/example_imgs/ $M && $R/bin/python -c '$MEM' && find exps -name '*.mp4' | tail -2" ;;
 gvhmr) run gvhmr bash -c "cd $W/src/GVHMR && $E/people/bin/python tools/demo/demo.py --video=$S/clip.mp4 -s --output_root $S/gvhmr" ;;
 node) run node bash -c "$E/node/bin/node --version" ;;
+spark) run spark bash -c "$E/recon/bin/python -c \"
+import numpy as np; from plyfile import PlyData, PlyElement
+n=50000; names=['x','y','z','f_dc_0','f_dc_1','f_dc_2','opacity','scale_0','scale_1','scale_2','rot_0','rot_1','rot_2','rot_3']
+a=np.random.randn(n,len(names)).astype('f4'); a[:,7:10]=-4; v=np.empty(n,[(k,'f4') for k in names])
+for i,k in enumerate(names): v[k]=a[:,i]
+PlyData([PlyElement.describe(v,'vertex')]).write('$S/rand.ply')\" && $W/src/spark/rust/target/release/build-lod --quality $S/rand.ply && ls -la $S/rand-lod.rad" ;;
 esac; done

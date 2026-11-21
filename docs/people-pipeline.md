@@ -4,7 +4,7 @@ Stages S2, S6, S7 and S8 from PRD §7.2. Each reads and writes `work/<youtubeId>
 
 ## S2 masks: `pipeline/s2_masks.py` (A-01)
 
-- **Env:** `conda env create -f pipeline/envs/sam3.yml`. SAM 3 is loaded through Hugging Face `transformers` (`Sam3VideoModel`), not the `facebookresearch/sam3` repo. `HF_TOKEN` must belong to an account with `facebook/sam3` access.
+- **Env:** the `sam3` env (`pipeline/envs/sam3.yml`, built by `setup_gpu.sh`). SAM 3 is loaded through Hugging Face `transformers` (`Sam3VideoModel`), which is pinned in that yml; the repo's own predictor isn't used. `HF_TOKEN` must belong to an account with `facebook/sam3` access.
 - **Run:** `python pipeline/s2_masks.py --work work/<id> [--dilate 15] [--min-frames 10] [--force]`. It skips if `S2/tracks.json` exists. It prints JSON progress lines like `{"stage":"S2","pct":..,"eta":..}`.
 - **Inputs:**
   - `S0/frames/*.jpg`: every frame of the processed window, sorted by name.
@@ -21,7 +21,7 @@ Stages S2, S6, S7 and S8 from PRD §7.2. Each reads and writes `work/<youtubeId>
 
 ## S8 people layer: `pipeline/s8_people_layer.py` (A-08)
 
-- **Env:** `conda env create -f pipeline/envs/depth.yml`, plus a clone of Video-Depth-Anything with its metric Small checkpoint. Setup commands are in the yml header. Point `--vda-repo` (or `$VDA_REPO`, default `/data/models/Video-Depth-Anything`) at the clone.
+- **Env:** the `depth` env from `pipeline/envs/setup_gpu.sh`. It uses the Video-Depth-Anything clone at `/data/src/Video-Depth-Anything` (override with `--vda-repo` or `$VDA_REPO`). `download_weights.sh` fetches the metric Small checkpoint and links it into that clone's `checkpoints/`.
 - **Run:** `python pipeline/s8_people_layer.py --work work/<id> [--ref-depth DIR] [--fps 30] [--force]`. It skips if `S8/holo.json` exists.
 - **Inputs:**
   - `S0/frames/*.jpg`.
@@ -53,3 +53,35 @@ Stages S2, S6, S7 and S8 from PRD §7.2. Each reads and writes `work/<youtubeId>
   - `S7/identity/<id>/cand_<frame>.png`: all candidate crops, kept for review.
   - `S7/identity/<id>/best.png`: the top-ranked crop.
   - `S7/identity.json`: `{persons: [{id, frame, ranked: [{frame, crop}], source: "gemini"|"fallback", reason}]}`. `ranked` is best first, and `crop` paths are relative to `S7/`. A-06 uses `best.png`, or the top few for LHM++.
+
+## Viewer: people layer `web/src/people/holo.ts` (A-10)
+
+- **API:** `const people = await loadPeopleLayer(base, shot)`. It returns `null` if the shot has no `peopleLayer`. Then `scene.add(people.mesh)`.
+  - `people.video` is the `holo.mp4` element. Slave it to the master clock (SH-02); nothing else drives it.
+  - The layer listens to that video's own `requestVideoFrameCallback`. It sets its pose (`cameras[frame].c2w`) and `near`/`far` for the frame **actually decoded**, so pose and pixels can't drift apart.
+  - `people.opacity` is for the A-11 blend. `people.frame` is the shot frame currently shown.
+- **Rendering:**
+  - A 256×144 vertex grid. The vertex shader decodes inverse depth from the bottom half of `holo.mp4` and back-projects each vertex through the intrinsics, in camera space using the three.js convention.
+  - Discards: vertices with value below 8, and any triangle touching a vertex whose 8 neighbours differ in depth by more than 1.08×. The flag is 0/1, so no slivers survive.
+  - The texture is read raw (NoColorSpace), because depth must not be gamma-converted.
+- **S8 depth smoothing:** monocular depth is noisy inside a person and bleeds background depth into the outline. That made the 1.08 test drop limbs even on-axis. `s8_people_layer.py` now box-blurs depth over **each instance's own mask** (kernel about W/40). This cut false discards from 688 to 71 grid cells on the bedroom clip, without merging two people's depths.
+- **Debug page:** `npm run dev` in `web/`, then open `/src/people/debug.html?world=<id>&yaw=<deg>&dx=<m>`.
+  - It needs `worlds/<id>/v1` copied into `web/public/worlds/` (not committed).
+  - `yaw=0&dx=0` is the original pose and should match the video exactly.
+
+## S6a body tracking: `pipeline/s6_body.py` (A-03)
+
+- **Tracker:** GVHMR (decision on A-02 / KAN-37). Runs in the `people` env from the GVHMR clone (`--gvhmr-repo` or `$GVHMR_REPO`, default `/data/src/GVHMR`), with its checkpoints and SMPL-X linked by `download_weights.sh`.
+- **Run:** `python pipeline/s6_body.py --work work/<id> [--cameras PATH] [--force]`. It skips when every person already has an `.npz`.
+- **Method:** for each `label == "person"` instance in `S2/tracks.json`:
+  - Span: the first to last visible frame. SAM boxes are linearly interpolated across occlusion gaps.
+  - Inputs: GVHMR gets **that instance's SAM boxes** (in place of its own YOLO tracker), plus ViTPose 2D keypoints and HMR2 features.
+  - Matching: SAM instances and bodies are matched one-to-one by construction, and non-person instances never become bodies. There is no limb refinement against keypoints (PRD §3).
+- **Camera:**
+  - With `S3/cameras.json` (E-03): the intrinsics come from it, and per-frame rotation comes from `c2w`, converted from three.js to OpenCV axes.
+  - Without it: GVHMR's `estimate_K` plus `SimpleVO` odometry. This is a shortcut until E-03 lands, and A-04 needs real cameras anyway.
+- **Output:** `S6/body/<objId>.npz`, one per person:
+  - Frame data: `frames` (absolute frame indices of the span), `visible` (ranges from `tracks.json`), `K` (3×3).
+  - SMPL-X parameters: `betas` (10, the median over the span, so one shape per person), `incam_{global_orient (F,3), body_pose (F,63), transl (F,3)}` (camera space, OpenCV axes; `transl` has a 5-frame moving average), `global_{global_orient, body_pose, transl}` (GVHMR's gravity-aligned world).
+  - `cam_source`: `"cameras.json"` or `"simplevo"`.
+  - A-04 places people with `incam_*` + `cameras.json` + the floor. The `global_*` parameters are kept for reference.

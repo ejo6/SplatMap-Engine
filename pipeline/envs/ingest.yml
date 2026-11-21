@@ -5,8 +5,8 @@ dependencies:
   - python=3.11
   - pip
   - pip:
-      - yt-dlp
-      - bgutil-ytdlp-pot-provider
-      - scenedetect[opencv]
-      - google-genai
-      - boto3
+      - yt-dlp==2026.10.26
+      - bgutil-ytdlp-pot-provider==2.0.2
+      - scenedetect[opencv]==0.7.3
+      - google-genai==3.6.1
+      - boto3==1.44.9
