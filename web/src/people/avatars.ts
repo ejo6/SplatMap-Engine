@@ -1,10 +1,12 @@
 import * as THREE from 'three';
+import { SplatMesh, SplatSkinning, SplatSkinningMode } from '@sparkjsdev/spark';
 
 // A-09 / KAN-59: animated people in the viewer (PRD §8.4 person.json, §10.5, FR-23).
 // motion.bin (pipeline/s6_place.py) holds, per shot frame, 55 SMPL-X joint matrices (3x4 row-major) that map the
 // person's rest space to world. Poses are looked up by exact frame, never interpolated, so a seek or a loop can't
 // blend toward another pose: the last pose simply holds until the clock moves (PRD §10.3).
-// Until A-07 picks avatar.kind, each person renders as a skeleton driven by those same matrices.
+// KAN-78: a person with avatar.kind "splat-lbs" (A-07) renders as their LHM Gaussians, skinned by Spark SplatSkinning
+// with bone j = motion[frame][j] and per-splat bones from skin.bin. Without an avatar they render as a skeleton.
 
 export interface PersonFile {
   id: string;
@@ -14,6 +16,13 @@ export interface PersonFile {
   restJoints: number[][];
   motion: { url: string; frameCount: number };
   visible: number[][];
+  avatar?: { kind: string; url: string; skin: string; splats: number } | null;
+}
+
+/** A splat-lbs avatar: the LHM Gaussians in rest space and their skinning (PRD §8.4). */
+export interface SplatAvatar {
+  mesh: SplatMesh;
+  skin: SplatSkinning;
 }
 
 const FLOATS_PER_JOINT = 12;
@@ -45,12 +54,15 @@ export class Avatar {
   private readonly shadow: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>;
   private readonly pairs: [number, number][];
   private readonly tmp = new THREE.Vector3();
+  private readonly splat?: SplatAvatar;
+  private readonly bone = new THREE.Matrix4();
   private fade = 1; // A-11 blend weight
   private shadowBase = 0.35;
 
-  constructor(person: PersonFile, motion: Float32Array) {
+  constructor(person: PersonFile, motion: Float32Array, splat?: SplatAvatar) {
     this.person = person;
     this.motion = motion;
+    this.splat = splat;
     this.pairs = person.parents.flatMap((p, j) => (p >= 0 ? [[j, p] as [number, number]] : []));
     const positions = new Float32Array(this.pairs.length * 6);
     const geometry = new THREE.BufferGeometry();
@@ -64,7 +76,7 @@ export class Avatar {
       new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false }),
     );
     this.shadow.position.y = 0.005;
-    this.group.add(this.bones, this.shadow);
+    this.group.add(splat ? splat.mesh : this.bones, this.shadow);
   }
 
   /** Pose the avatar at shot frame `frame`; hidden outside its visible ranges. */
@@ -74,14 +86,25 @@ export class Avatar {
     this.group.visible = inRanges(f, visible);
     if (!this.group.visible) return;
 
-    const pos = this.bones.geometry.attributes.position as THREE.BufferAttribute;
-    this.pairs.forEach(([a, b], i) => {
-      jointWorld(this.motion, joints, f, a, restJoints[a], this.tmp);
-      pos.setXYZ(i * 2, this.tmp.x, this.tmp.y, this.tmp.z);
-      jointWorld(this.motion, joints, f, b, restJoints[b], this.tmp);
-      pos.setXYZ(i * 2 + 1, this.tmp.x, this.tmp.y, this.tmp.z);
-    });
-    pos.needsUpdate = true;
+    if (this.splat) {
+      const m = this.motion;
+      for (let j = 0; j < joints; j++) {
+        const o = (f * joints + j) * FLOATS_PER_JOINT;
+        this.bone.set(m[o], m[o + 1], m[o + 2], m[o + 3], m[o + 4], m[o + 5], m[o + 6], m[o + 7],
+          m[o + 8], m[o + 9], m[o + 10], m[o + 11], 0, 0, 0, 1);
+        this.splat.skin.setBoneMatrix(j, this.bone);
+      }
+      this.splat.skin.updateBones();
+    } else {
+      const pos = this.bones.geometry.attributes.position as THREE.BufferAttribute;
+      this.pairs.forEach(([a, b], i) => {
+        jointWorld(this.motion, joints, f, a, restJoints[a], this.tmp);
+        pos.setXYZ(i * 2, this.tmp.x, this.tmp.y, this.tmp.z);
+        jointWorld(this.motion, joints, f, b, restJoints[b], this.tmp);
+        pos.setXYZ(i * 2 + 1, this.tmp.x, this.tmp.y, this.tmp.z);
+      });
+      pos.needsUpdate = true;
+    }
 
     let x = 0, z = 0, low = Infinity;
     for (const j of FOOT_JOINTS) {
@@ -99,6 +122,7 @@ export class Avatar {
   set opacity(v: number) {
     this.fade = v;
     (this.bones.material as THREE.LineBasicMaterial).opacity = v;
+    if (this.splat) this.splat.mesh.opacity = v;
     this.shadow.material.opacity = this.shadowBase * v;
   }
 }
@@ -110,7 +134,28 @@ export async function loadAvatars(base: string, people: { person: string }[]): P
       const person = (await fetch(base + path).then((r) => r.json())) as PersonFile;
       const dir = path.slice(0, path.lastIndexOf('/') + 1);
       const buf = await fetch(base + dir + person.motion.url).then((r) => r.arrayBuffer());
-      return new Avatar(person, new Float32Array(buf)); // little-endian float32 (PRD §8.1), native on every target
+      const splat = person.avatar?.kind === 'splat-lbs' ? await loadSplatAvatar(base + dir, person) : undefined;
+      return new Avatar(person, new Float32Array(buf), splat); // little-endian float32 (PRD §8.1), native on every target
     }),
   );
+}
+
+/** avatar.ply as an ExtSplats mesh (LBS needs covSplats) skinned from skin.bin: N x [4 joint indices, 4 weights]. */
+async function loadSplatAvatar(dir: string, person: PersonFile): Promise<SplatAvatar> {
+  const avatar = person.avatar!;
+  const [mesh, skinBuf] = await Promise.all([
+    new SplatMesh({ url: dir + avatar.url, extSplats: true, covSplats: true }).initialized,
+    fetch(dir + avatar.skin).then((r) => r.arrayBuffer()),
+  ]);
+  const w = new Float32Array(skinBuf);
+  const skin = new SplatSkinning({ mesh, numBones: person.joints, mode: SplatSkinningMode.LINEAR_BLEND });
+  const bi = new THREE.Vector4(), bw = new THREE.Vector4();
+  for (let i = 0; i < w.length / 8; i++) {
+    const o = i * 8;
+    skin.setSplatBones(i, bi.set(w[o], w[o + 1], w[o + 2], w[o + 3]), bw.set(w[o + 4], w[o + 5], w[o + 6], w[o + 7]));
+  }
+  mesh.skinning = skin;
+  mesh.updateGenerator();
+  mesh.frustumCulled = false; // skinned splats move far from the rest-space bounds
+  return { mesh, skin };
 }

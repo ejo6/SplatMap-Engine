@@ -41,6 +41,7 @@ interface Manifest {
     world: { rad?: string; spz?: string; rotation?: [number, number, number] };
     cameras: string;
     bounds?: { walk?: string; colliders?: string };
+    people?: { id: string; person: string }[];
   }[];
   // SH-09 (PRD §8.3, §10.6): gaps in the processed window with no reconstructed shot at all.
   unreconstructed?: UnreconstructedRange[];
@@ -132,10 +133,13 @@ async function loadWorld(manifest: Manifest, base: string, youtubeId: string) {
   app.replaceChildren(renderer.domElement);
 
   // The LoD budget is the renderer's lodSplatCount; Spark's own default is 2.5M on every desktop, Macs included.
-  const spark = new SparkRenderer({ renderer, lodSplatCount: budget });
+  // KAN-78: skinned splat avatars only have a cov generator, so Spark 2.4 needs covSplats + accumExtSplats (A-07).
+  // With accumExtSplats the .rad world must also load as ExtSplats, or it renders white.
+  const avatars = (shot.people?.length ?? 0) > 0;
+  const spark = new SparkRenderer({ renderer, lodSplatCount: budget, covSplats: avatars, accumExtSplats: avatars });
   scene.add(spark);
 
-  const world = new SplatMesh({ url: base + worldPath });
+  const world = new SplatMesh({ url: base + worldPath, extSplats: avatars });
   if (shot.world.rotation) world.rotation.set(...(shot.world.rotation.map(THREE.MathUtils.degToRad) as [number, number, number]));
   scene.add(world);
 
