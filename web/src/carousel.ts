@@ -1,36 +1,76 @@
-// KAN-88: the built worlds (gallery.json, PRD §9) as a rotating carousel, on the landing page and on /unavailable.
+// KAN-88: the built worlds as a rotating carousel, on the landing page and on /unavailable.
+// KAN-93: the list is the world folders actually on this machine (/worlds-index.json, served by vite.config.ts),
+// so every card routes to a world that exists here. gallery.json only adds curated titles, credits and order.
+
+import { creditText, type Credit } from './hud';
 
 export interface World {
-  youtubeId: string;
+  id: string; // the worlds/ folder name, routed as /w/<id>
   title: string;
-  thumb: string;
   credit: string;
+  video: string;
+}
+
+interface DiskWorld {
+  id: string;
+  youtubeId: string;
+  title?: string;
+  credit?: Credit;
+  video: string;
 }
 
 const ROTATE_MS = 6000;
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const text = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 
 let worlds: Promise<World[]> | undefined;
-/** Valid gallery entries only; rejects if gallery.json can't be read. */
+/** The worlds on disk, curated ones first; rejects if the index can't be read. */
 export function loadWorlds(): Promise<World[]> {
-  worlds ??= fetch('/gallery.json')
-    .then((r) => (r.ok ? r.json() : Promise.reject(new Error('Gallery unavailable'))))
-    .then((list) => (Array.isArray(list) ? list : []).filter((w): w is World =>
-      Boolean(w) && /^[\w-]{11}$/.test(w.youtubeId) &&
-      [w.title, w.credit, w.thumb].every((v) => typeof v === 'string' && v.trim() !== '')));
+  worlds ??= Promise.all([
+    fetch('/worlds-index.json').then((r) => (r.ok ? r.json() : Promise.reject(new Error('World index unavailable')))),
+    fetch('/gallery.json').then((r) => (r.ok ? r.json() : [])).catch(() => []),
+  ]).then(([disk, gallery]: [DiskWorld[], { youtubeId?: string; title?: string; credit?: string }[]]) => {
+    const curated = Array.isArray(gallery) ? gallery : [];
+    const rank = (w: DiskWorld) => {
+      const i = curated.findIndex((g) => g?.youtubeId === w.id || g?.youtubeId === w.youtubeId);
+      return i < 0 ? curated.length : i;
+    };
+    return (Array.isArray(disk) ? disk : [])
+      .filter((w) => /^[\w-]+$/.test(w?.id))
+      .sort((a, b) => rank(a) - rank(b))
+      .map((w) => {
+        const g = curated[rank(w)];
+        return {
+          id: w.id,
+          title: text(g?.title) || text(w.title) || w.id,
+          credit: text(g?.credit) ? 'Video by ' + text(g?.credit) : creditText(w.credit, w.id).text,
+          video: `/worlds/${w.id}/v1/${w.video}`,
+        };
+      });
+  });
   return worlds;
 }
 
-/** YouTube's 1280x720 cover, else the world's own 640x360 thumb.jpg. A missing maxres answers 404 or a 120x90 placeholder. */
-function hiResThumb(world: World, eager: boolean) {
+/** YouTube's 1280x720 cover for YouTube ids, else (or if YouTube has none) a frame of the world's own video. */
+function cover(world: World, eager: boolean): HTMLElement {
+  const frame = () => {
+    const v = document.createElement('video');
+    v.muted = true;
+    v.playsInline = true;
+    v.preload = 'metadata';
+    v.src = world.video + '#t=0.5'; // media fragment: the decoder shows the frame at 0.5 s without playing
+    v.setAttribute('aria-hidden', 'true');
+    return v;
+  };
+  if (!/^[\w-]{11}$/.test(world.id)) return frame();
   const img = new Image();
   img.alt = '';
   img.decoding = 'async';
   if (!eager) img.loading = 'lazy';
-  const fallback = () => img.src !== new URL(world.thumb, location.href).href && (img.src = world.thumb);
-  img.addEventListener('error', fallback);
-  img.addEventListener('load', () => img.naturalWidth <= 120 && fallback());
-  img.src = `https://i.ytimg.com/vi/${world.youtubeId}/maxresdefault.jpg`;
+  const fallback = () => img.replaceWith(frame());
+  img.addEventListener('error', fallback, { once: true });
+  img.addEventListener('load', () => img.naturalWidth <= 120 && fallback()); // a missing maxres can answer a 120x90 placeholder
+  img.src = `https://i.ytimg.com/vi/${world.id}/maxresdefault.jpg`;
   return img;
 }
 
@@ -69,15 +109,15 @@ export async function mountCarousel(root: HTMLElement) {
   const slides = list.map((world, i) => {
     const slide = document.createElement('a');
     slide.className = 'world';
-    slide.href = '/w/' + world.youtubeId;
+    slide.href = '/w/' + world.id;
     slide.setAttribute('role', 'group');
     slide.setAttribute('aria-roledescription', 'slide');
     slide.setAttribute('aria-label', `${i + 1} of ${list.length}: ${world.title}`);
     const title = document.createElement('strong');
     title.textContent = world.title;
     const credit = document.createElement('small');
-    credit.textContent = 'Video by ' + world.credit;
-    slide.append(hiResThumb(world, i === 0), title, credit);
+    credit.textContent = world.credit;
+    slide.append(cover(world, i === 0), title, credit);
     return slide;
   });
   track.append(...slides);

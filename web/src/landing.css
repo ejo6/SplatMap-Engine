@@ -257,8 +257,8 @@ body:has(.lake.rising) .top, .lake.rising h1, .lake.rising .shore, .lake.rising 
 .track::-webkit-scrollbar { display: none; }
 .world { flex: 0 0 var(--slide); scroll-snap-align: center; display: grid; gap: 10px; text-decoration: none; opacity: 0.45; transition: opacity 400ms cubic-bezier(0.2, 0.7, 0.15, 1); }
 .world.current, .single .world, .world:focus-visible { opacity: 1; }
-.world img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 14px; background: var(--glacier-pale); transition: transform 300ms cubic-bezier(0.2, 0.7, 0.15, 1); }
-.world:hover img { transform: translateY(-3px); }
+.world img, .world video { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 14px; background: var(--glacier-pale); transition: transform 300ms cubic-bezier(0.2, 0.7, 0.15, 1); }
+.world:hover img, .world:hover video { transform: translateY(-3px); }
 .world strong { margin-top: 6px; font: 700 1.45rem/1.15 var(--display); letter-spacing: -0.02em; }
 .world small { color: var(--ink-soft); font-size: 0.95rem; }
 /* Controls: round steps either side of a waypoint per world (Glacier ring on Snow, filled for the one in view). */
@@ -397,5 +397,5 @@ body:has(.lake.rising) .top, .lake.rising h1, .lake.rising .shore, .lake.rising 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .reflection { filter: none; }
-  .photo, .world, .world img, .field button, .thumb, .reflection .echo, .lake h1, .step, .dot::before { transition: none; }
+  .photo, .world, .world img, .world video, .field button, .thumb, .reflection .echo, .lake h1, .step, .dot::before { transition: none; }
 }

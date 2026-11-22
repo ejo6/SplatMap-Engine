@@ -181,7 +181,7 @@ form.addEventListener('submit', (event) => {
   }
   // No new videos are processed (KAN-88): a world we already built opens, anything else gets the GPU notice.
   void loadWorlds().catch(() => []).then((worlds) => {
-    if (!worlds.some((w) => w.youtubeId === id)) return location.assign('/unavailable');
+    if (!worlds.some((w) => w.id === id)) return location.assign('/unavailable');
     if (reduceMotion) return location.assign('/w/' + id);
     lake.classList.add('rising'); // rise through the waterline into the peaks, then open the world
     setTimeout(() => location.assign('/w/' + id), 720);
