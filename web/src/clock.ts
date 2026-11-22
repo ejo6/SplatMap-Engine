@@ -111,8 +111,9 @@ export function slaveVideo(master: HTMLVideoElement, slave: HTMLVideoElement, fp
 }
 
 /** Audio stays muted until the first user gesture, per browser autoplay policy and PRD §10.1. */
-export function unmuteOnFirstGesture(video: HTMLVideoElement) {
+export function unmuteOnFirstGesture(video: HTMLVideoElement, onGesture?: () => void) {
   const unmute = () => {
+    onGesture?.();
     video.muted = false;
     window.removeEventListener('pointerdown', unmute);
     window.removeEventListener('keydown', unmute);

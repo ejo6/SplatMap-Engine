@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { clampMoveForColliders, resolveWalkMove, type WalkSdfGrid } from './walk-bounds';
+import { clampMoveForColliders, resolveWalkMove, type WalkSdfGrid } from './walk-bounds.ts';
 
 // SH-03: camera modes - ride-along, walk, return (PRD §10.2, FR-16-18)
 // SH-07: walk boundary - SDF damping/push/slide, plus colliders (PRD §10.4, FR-22)

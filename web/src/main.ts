@@ -10,6 +10,9 @@ import { loadPeople } from './people';
 import type { WalkSdfGrid } from './walk-bounds';
 import { bindFogToggle, FogVolume } from './fog';
 import { isUnreconstructed, OutOfShotFx, type UnreconstructedRange } from './out-of-shot';
+import { SpatialSoundtrack, startSpatialSoundtrack } from './spatial-audio';
+import { GhostPath } from './ghost-path';
+import { gpuRendererString, isDiscreteGPU, lodBudget } from './gpu';
 import './style.css';
 
 // SH-01: viewer scaffold + world loader (PRD §7.4, §8, §10.8, FR-05)
@@ -83,18 +86,24 @@ async function resolveManifest(youtubeId: string): Promise<{ manifest: Manifest;
   return null;
 }
 
-// Detects a discrete GPU from the WebGL renderer string, used to scale both the splat
-// budget and the DPR cap (PRD §10.8) - M1/M2 Macs (the PRD §3 baseline) fall in the
-// integrated bucket, which is where a heavier scene is most likely to feel laggy.
-function hasDiscreteGPU(): boolean {
-  const gl = document.createElement('canvas').getContext('webgl2');
-  const info = gl?.getExtension('WEBGL_debug_renderer_info');
-  const renderer = (info && gl!.getParameter(info.UNMASKED_RENDERER_WEBGL)) || '';
-  return /nvidia|amd|radeon/i.test(renderer) && !/apple|intel/i.test(renderer);
-}
-
-function lodBudget(discrete: boolean): number {
-  return discrete ? 2_500_000 : 1_500_000;
+/** SH-13: `?perf` overlays fps (last second), p95 frame time, DPR, splat budget and GPU, for the KAN-56 measurements. */
+function perfHud(gpu: string, dpr: number, budget: number): () => void {
+  if (!new URLSearchParams(location.search).has('perf')) return () => {};
+  const el = document.createElement('pre');
+  el.style.cssText = 'position:fixed;top:8px;left:8px;margin:0;padding:6px 8px;z-index:10;background:rgba(0,0,0,.6);color:#fff;font:12px/1.4 ui-monospace,monospace;pointer-events:none';
+  document.body.append(el);
+  let times: number[] = [];
+  let last = performance.now(), shown = last;
+  return () => {
+    const now = performance.now();
+    times.push(now - last);
+    last = now;
+    if (now - shown < 1000) return;
+    const p95 = [...times].sort((a, b) => a - b)[Math.floor(times.length * 0.95)];
+    el.textContent = `${((1000 * times.length) / (now - shown)).toFixed(1)} fps · p95 ${p95.toFixed(1)} ms\nDPR ${dpr} · LoD ${budget / 1e6}M splats\n${gpu || 'GPU hidden'}`;
+    times = [];
+    shown = now;
+  };
 }
 
 async function loadWorld(manifest: Manifest, base: string) {
@@ -107,17 +116,21 @@ async function loadWorld(manifest: Manifest, base: string) {
 
   // Antialiasing costs real fill-rate on heavily alpha-blended splats for little visible
   // gain (splats are already soft-edged), so it's off rather than the three.js default.
-  const discreteGPU = hasDiscreteGPU();
+  // M1/M2 Macs (the PRD §3 baseline) fall in the integrated bucket: lower DPR cap and splat budget.
+  const gpu = gpuRendererString();
+  const discreteGPU = isDiscreteGPU(gpu);
+  const budget = lodBudget(discreteGPU);
   const scene = new THREE.Scene();
   const renderer = new THREE.WebGLRenderer({ antialias: false });
   renderer.setPixelRatio(Math.min(devicePixelRatio, discreteGPU ? 1.5 : 1)); // NFR DPR cap, PRD §10.8
   renderer.setSize(innerWidth, innerHeight);
   app.replaceChildren(renderer.domElement);
 
-  const spark = new SparkRenderer({ renderer });
+  // The LoD budget is the renderer's lodSplatCount; Spark's own default is 2.5M on every desktop, Macs included.
+  const spark = new SparkRenderer({ renderer, lodSplatCount: budget });
   scene.add(spark);
 
-  const world = new SplatMesh({ url: base + worldPath, maxSplats: lodBudget(discreteGPU) });
+  const world = new SplatMesh({ url: base + worldPath });
   if (shot.world.rotation) world.rotation.set(...(shot.world.rotation.map(THREE.MathUtils.degToRad) as [number, number, number]));
   scene.add(world);
 
@@ -145,15 +158,23 @@ async function loadWorld(manifest: Manifest, base: string) {
 
   // SH-02: the master video is the only clock; every other layer reads its bus (PRD §10.1, FR-15).
   const video = document.createElement('video');
+  video.crossOrigin = 'anonymous';
   video.src = base + manifest.video.url;
   video.muted = true;
   video.playsInline = true;
   video.autoplay = true;
-  unmuteOnFirstGesture(video);
+  let soundtrack: SpatialSoundtrack | undefined;
+  unmuteOnFirstGesture(video, () => {
+    void startSpatialSoundtrack(video).then(track => { soundtrack = track; });
+  });
 
   // SH-04: video overlay at the original pose (PRD §10.2, §10.5)
   const overlay = new VideoOverlay(video, cameras);
   scene.add(overlay.mesh);
+
+  // SH-11: ghost camera path, walk mode only (PRD FR-30)
+  const ghostPath = new GhostPath(cameras);
+  scene.add(ghostPath.group);
 
   // A-09/A-10: people layer + avatars (PRD §10.5); empty if the shot has neither.
   const people = await loadPeople(base, shot, video, manifest.video.fps, cameras);
@@ -165,10 +186,14 @@ async function loadWorld(manifest: Manifest, base: string) {
   scene.add(outOfShotFx.group);
   let outOfShot = false;
 
+  const recordedPosition = new THREE.Vector3();
   new MasterClock(video, shot, manifest.video.fps).subscribe((state) => {
     rig.setFrame(state.frame);
-    overlay.setFrame(poseAt(cameras, state.frame));
+    const pose = poseAt(cameras, state.frame);
+    recordedPosition.copy(pose.position);
+    overlay.setFrame(pose);
     people.setFrame(state.frame);
+    ghostPath.setFrame(state.frame);
     outOfShot = isUnreconstructed(state.t, unreconstructed);
     outOfShotFx.setActive(outOfShot);
   });
@@ -181,12 +206,14 @@ async function loadWorld(manifest: Manifest, base: string) {
   const shotStarts = manifest.shots.map((s) => s.start);
   app.appendChild(createTransportUI(video, base, thumbs, shotStarts, scrub));
 
+  const tickPerf = perfHud(gpu, renderer.getPixelRatio(), budget);
   const timer = new THREE.Timer();
   timer.connect(document);
   renderer.setAnimationLoop(() => {
     timer.update();
     const dt = timer.getDelta();
     rig.update(dt);
+    soundtrack?.update(rig.camera, recordedPosition, !outOfShot && (rig.mode === 'walk' || rig.mode === 'returning'));
     outOfShotFx.update(rig.camera, dt);
     world.opacity = outOfShotFx.presence;
     people.group.visible = outOfShotFx.presence > 0;
@@ -195,6 +222,7 @@ async function loadWorld(manifest: Manifest, base: string) {
     overlay.update(dt);
     people.update(rig.camera, rig.mode);
     renderer.render(scene, rig.camera);
+    tickPerf();
   });
 }
 
