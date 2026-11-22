@@ -228,6 +228,14 @@ async function loadWorld(manifest: Manifest, base: string, youtubeId: string) {
   // SH-12: HUD - title, scene card, creator credit, controls hint, ghost-path style (PRD FR-26)
   app.appendChild(createHud({ ...manifest, youtubeId, onPathStyle: (style) => ghostPath.setStyle(style) }));
 
+  // R: restart the video from the beginning, riding along with the original camera (C rejoins without seeking, camera.ts).
+  addEventListener('keydown', (e) => {
+    if (e.code !== 'KeyR' || e.repeat) return;
+    rig.rideAlong();
+    video.currentTime = 0;
+    void video.play();
+  });
+
   const tickPerf = perfHud(gpu, renderer.getPixelRatio(), budget);
   const timer = new THREE.Timer();
   timer.connect(document);

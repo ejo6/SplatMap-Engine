@@ -97,7 +97,7 @@ On any YouTube watch page, a **Step inside** button sits next to Like. Clicking 
 2. Click to capture the mouse. Moving the mouse or pressing WASD switches to walk mode at eye height, and the people become walk-around avatars.
 3. Walk toward the edge of what was filmed: the world dissolves into fog and movement softly slows and slides along the boundary.
 4. Grab the timeline: the camera glides back to the original camera and follows the video's own path while you drag. Release to keep playing in ride-along. Move to walk off again.
-5. Press **R** to return to the camera without seeking. Press **F** to toggle the fog (demo comparison).
+5. Press **C** to rejoin the camera without seeking, or **R** to restart from the beginning. Press **F** to toggle the fog (demo comparison).
 
 ---
 
@@ -339,7 +339,8 @@ worlds/<youtubeId>/v<pipelineVersion>/
 |---|---|
 | **Ride-along** (default on load and after scrubbing) | Camera = `cameras[frame].c2w`, FOV taken from the intrinsics. The video overlay (a plane filling the original frustum) is shown at 100%, so the world is visible only around the frame edges. |
 | **Walk** | Entered on mouse look or WASD. Eye height 1.6 m above the floor. Walk 1.4 m/s, Shift to run 3 m/s. The overlay fades out over 250 ms. |
-| **Return (R)** | Tween over 400 ms (lerp position, slerp rotation, ease-out) to the current original pose, then switch to ride-along. Doesn't seek. |
+| **Rejoin (C)** | Tween over 400 ms (lerp position, slerp rotation, ease-out) to the current original pose (where the ghost-path marker is), then switch to ride-along. Doesn't seek. |
+| **Restart (R)** | Seek the video to 0:00 and ride along from the beginning. |
 
 ### 10.3 Scrub state machine
 
@@ -400,8 +401,8 @@ Rules:
 | Shift | Run |
 | Space | Play/pause |
 | ← / → | −5 s / +5 s |
-| R | Return to camera |
-| C | Toggle ride-along |
+| C | Rejoin the camera at the current time |
+| R | Restart the video from the beginning |
 | F | Toggle fog (demo) |
 | M | Mini-map (P2) |
 | Esc | Release pointer |
