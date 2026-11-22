@@ -103,18 +103,18 @@ app.innerHTML = `
 
 // --- Waterline: keep the form and the reflection split exactly on the photo's lake edge. ---
 const lake = document.querySelector<HTMLElement>('.lake')!;
-const headline = lake.querySelector('h1')!;
+const header = document.querySelector<HTMLElement>('.top')!;
+const shore = document.querySelector<HTMLElement>('.shore')!;
 const placeWaterline = () => {
   const y = waterlineY(lake.clientWidth, lake.clientHeight);
   lake.style.setProperty('--waterline', `${y}px`);
-  // The pasted video's thumbnail fills the room between the headline and the bar (bar top = y - 33, 14px gaps), up to 150px.
-  const room = y - 33 - 14 - (headline.offsetTop + headline.offsetHeight) - 14;
-  lake.style.setProperty('--thumb-h', `${Math.max(0, Math.min(150, room))}px`);
+  // A pasted video's thumbnail replaces the headline: it fills the room from under the header down to the bar
+  // (bar top = y - 33, 14px gaps), no wider than the bar itself, 16:9.
+  const room = y - 33 - 14 - header.offsetHeight - 14;
+  lake.style.setProperty('--thumb-h', `${Math.max(0, Math.min(room, (shore.clientWidth * 9) / 16))}px`);
 };
 placeWaterline();
-const resize = new ResizeObserver(placeWaterline);
-resize.observe(lake);
-resize.observe(headline); // its height changes when the display font arrives
+new ResizeObserver(placeWaterline).observe(lake);
 
 // --- Signature interaction: the pointer stirs the reflection; it settles back to a slow swell. ---
 const displacement = document.querySelector('feDisplacementMap')!;
