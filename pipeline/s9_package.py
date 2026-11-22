@@ -79,9 +79,12 @@ def main():
     qa = {"verdict": "unchecked", "notes": ""}
 
     if (w / "S5/walk.json").exists():  # E-06
-        for f in ("walk.json", "walk_sdf.bin", "coverage.bin", "colliders.glb"):
+        for f in ("walk.json", "walk_sdf.bin", "coverage.bin"):
             shutil.copy(w / "S5" / f, s0 / f)
-        shot["bounds"] = {"walk": "s0/walk.json", "colliders": "s0/colliders.glb"}
+        shot["bounds"] = {"walk": "s0/walk.json"}
+        if (w / "S5/colliders.glb").exists():  # S5 writes none when it finds no obstacles
+            shutil.copy(w / "S5/colliders.glb", s0 / "colliders.glb")
+            shot["bounds"]["colliders"] = "s0/colliders.glb"
         qa["fogRadius"] = json.loads((w / "S5/walk.json").read_text())["fog"]["radius"]
     if (w / "S8/holo.json").exists():  # A-08
         shutil.copy(w / "S8/holo.mp4", s0 / "holo.mp4")

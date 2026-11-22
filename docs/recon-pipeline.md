@@ -104,7 +104,7 @@ Stages S3–S5 and S9a from PRD §7.2. Each reads and writes `work/<youtubeId>/<
 - **colliders.glb:** one box per obstacle column within 1 m of the walkable area, from the floor to its top occupied voxel. IMG_6714 has 1,232 boxes (296 KB). No file is written when there are no boxes.
 - **Fog colour:** mean of the top third of the keyframes. `eyeHeight` is the median camera height.
 - **Also writes:** `S5/walk_debug.png`, a top-down view: green walkable, red blocked, grey seen floor, white camera path.
-- **Copy into a world:** copy the four files to `worlds/<id>/v1/s0/` and set `shots[0].bounds = {walk, colliders}` in the manifest. This step is S9a's job once that exists.
+- **Copy into a world:** copy the four files to `worlds/<id>/v1/s0/` and set `shots[0].bounds = {walk, colliders}` in the manifest. S9a does this; it leaves out `colliders` when S5 wrote no `colliders.glb`.
 ## S9a package: `pipeline/s9_package.py` (E-08)
 
 - **Env:** `recon`, CPU only. Spark `build-lod` comes from `$BUILD_LOD`, default `/workspace/src/spark/rust/target/release/build-lod`.
