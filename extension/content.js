@@ -25,6 +25,7 @@
     if (!id) return;
 
     const video = document.querySelector("#movie_player video.html5-main-video, #movie_player video");
+    video?.pause();
     const time = video?.currentTime;
     const url = new URL("/w/" + id, STEP_INSIDE_VIEWER_ORIGIN);
     url.searchParams.set("t", Number.isFinite(time) && time > 0 ? time.toFixed(3) : "0");
