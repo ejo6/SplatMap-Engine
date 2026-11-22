@@ -10,7 +10,7 @@ import { loadPeople } from './people';
 import type { WalkSdfGrid } from './walk-bounds';
 import { bindFogToggle, FogVolume } from './fog';
 import { isUnreconstructed, OutOfShotFx, type UnreconstructedRange } from './out-of-shot';
-import { GhostPath } from './ghost-path';
+import { SpatialSoundtrack, startSpatialSoundtrack } from './spatial-audio';
 import './style.css';
 
 // SH-01: viewer scaffold + world loader (PRD §7.4, §8, §10.8, FR-05)
@@ -146,11 +146,15 @@ async function loadWorld(manifest: Manifest, base: string) {
 
   // SH-02: the master video is the only clock; every other layer reads its bus (PRD §10.1, FR-15).
   const video = document.createElement('video');
+  video.crossOrigin = 'anonymous';
   video.src = base + manifest.video.url;
   video.muted = true;
   video.playsInline = true;
   video.autoplay = true;
-  unmuteOnFirstGesture(video);
+  let soundtrack: SpatialSoundtrack | undefined;
+  unmuteOnFirstGesture(video, () => {
+    void startSpatialSoundtrack(video).then(track => { soundtrack = track; });
+  });
 
   // SH-04: video overlay at the original pose (PRD §10.2, §10.5)
   const overlay = new VideoOverlay(video, cameras);
@@ -170,9 +174,12 @@ async function loadWorld(manifest: Manifest, base: string) {
   scene.add(outOfShotFx.group);
   let outOfShot = false;
 
+  const recordedPosition = new THREE.Vector3();
   new MasterClock(video, shot, manifest.video.fps).subscribe((state) => {
     rig.setFrame(state.frame);
-    overlay.setFrame(poseAt(cameras, state.frame));
+    const pose = poseAt(cameras, state.frame);
+    recordedPosition.copy(pose.position);
+    overlay.setFrame(pose);
     people.setFrame(state.frame);
     ghostPath.setFrame(state.frame);
     outOfShot = isUnreconstructed(state.t, unreconstructed);
@@ -193,7 +200,7 @@ async function loadWorld(manifest: Manifest, base: string) {
     timer.update();
     const dt = timer.getDelta();
     rig.update(dt);
-    ghostPath.setVisible(rig.mode === 'walk');
+    soundtrack?.update(rig.camera, recordedPosition, !outOfShot && (rig.mode === 'walk' || rig.mode === 'returning'));
     outOfShotFx.update(rig.camera, dt);
     world.opacity = outOfShotFx.presence;
     people.group.visible = outOfShotFx.presence > 0;
