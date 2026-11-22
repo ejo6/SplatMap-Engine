@@ -29,3 +29,9 @@ __pycache__/
 *.pyc
 .venv/
 .DS_Store
+
+# design-tool working files (Impeccable); DESIGN.md and PRODUCT.md at the root are the record
+.impeccable/
+
+# local browser-tool screenshots and logs
+.playwright-mcp/
