@@ -1,0 +1,36 @@
+{
+ "eyeHeight": 0.9,
+ "startFrame": 0,
+ "fog": {
+  "color": [
+   0.265,
+   0.237,
+   0.212
+  ],
+  "radius": 4.0
+ },
+ "sdf": {
+  "url": "walk_sdf.bin",
+  "origin": [
+   -5.104016,
+   -9.41325
+  ],
+  "cellSize": 0.1,
+  "width": 147,
+  "height": 140
+ },
+ "coverage": {
+  "url": "coverage.bin",
+  "origin": [
+   -5.104016,
+   -4.2436240000000005,
+   -9.41325
+  ],
+  "cellSize": 0.15,
+  "dims": [
+   98,
+   67,
+   93
+  ]
+ }
+}

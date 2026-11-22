@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "pipelineVersion": "1",
+  "youtubeId": "CEl6P5wo6ro",
+  "title": "CEl6P5wo6ro",
+  "credit": {
+    "creator": "",
+    "license": "",
+    "url": "https://youtube.com/watch?v=CEl6P5wo6ro"
+  },
+  "sceneCard": "This scene uses the longest continuous shot detected in the upload. Explore that shot while the original video plays.",
+  "video": {
+    "url": "video.mp4",
+    "fps": 30.0,
+    "width": 1280,
+    "height": 720,
+    "duration": 60.0,
+    "sourceStart": 523,
+    "thumbs": {
+      "sprite": "thumbs.jpg",
+      "index": "thumbs.json"
+    }
+  },
+  "shots": [
+    {
+      "id": "s0",
+      "start": 28.733333333333334,
+      "end": 60.0,
+      "frameCount": 938,
+      "world": {
+        "rad": "s0/world.rad",
+        "spz": "s0/world.spz",
+        "splatCount": 136383
+      },
+      "cameras": "s0/cameras.json",
+      "people": [],
+      "bounds": {
+        "walk": "s0/walk.json",
+        "colliders": "s0/colliders.glb"
+      }
+    }
+  ],
+  "unreconstructed": [
+    {
+      "start": 0.0,
+      "end": 28.733333333333334
+    }
+  ],
+  "qa": {
+    "verdict": "unchecked",
+    "notes": "",
+    "fogRadius": 4.0
+  },
+  "createdAt": "2026-11-22T06:12:31Z"
+}
