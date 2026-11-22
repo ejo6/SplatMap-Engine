@@ -43,6 +43,17 @@ html, body, #app {
   width: 24px;
 }
 
+.transport-speed {
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  padding: 0;
+  min-width: 32px;
+}
+
 .transport-time {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;

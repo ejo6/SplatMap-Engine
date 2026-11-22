@@ -73,16 +73,22 @@ export class MasterClock {
 const FRAME_DRIFT_SECONDS = (fps: number) => 1 / fps;
 const PLAYBACK_RATE_NUDGE = 0.05;
 
+/** The slave's playbackRate: the master's own rate (SH-17, FR-32), nudged ±5% while it is more than a frame off. */
+export function slaveRate(drift: number, maxDrift: number, masterRate: number): number {
+  if (Math.abs(drift) <= maxDrift) return masterRate;
+  return masterRate * (drift > 0 ? 1 - PLAYBACK_RATE_NUDGE : 1 + PLAYBACK_RATE_NUDGE);
+}
+
 /**
- * Keeps a secondary video (e.g. `holo.mp4`) slaved to the master: drift above one frame is
- * corrected by seeking, smaller drift by a ±5% playbackRate nudge (PRD §10.1).
+ * Keeps a secondary video (e.g. `holo.mp4`) slaved to the master at the master's speed: drift above two frames
+ * is corrected by seeking, smaller drift by a ±5% playbackRate nudge (PRD §10.1).
  */
 export function slaveVideo(master: HTMLVideoElement, slave: HTMLVideoElement, fps: number): () => void {
   const maxDrift = FRAME_DRIFT_SECONDS(fps);
 
   const resync = () => {
     slave.currentTime = master.currentTime;
-    slave.playbackRate = 1;
+    slave.playbackRate = master.playbackRate;
   };
   const onPlay = () => {
     resync();
@@ -90,9 +96,10 @@ export function slaveVideo(master: HTMLVideoElement, slave: HTMLVideoElement, fp
   };
   const onPause = () => slave.pause();
   const onSeeked = () => resync();
+  const onRateChange = () => (slave.playbackRate = master.playbackRate);
   const onFrame = (_now: number, _metadata: VideoFrameCallbackMetadata) => {
     const drift = slave.currentTime - master.currentTime;
-    slave.playbackRate = Math.abs(drift) <= maxDrift ? 1 : drift > 0 ? 1 - PLAYBACK_RATE_NUDGE : 1 + PLAYBACK_RATE_NUDGE;
+    slave.playbackRate = slaveRate(drift, maxDrift, master.playbackRate);
     if (Math.abs(drift) > maxDrift * 2) slave.currentTime = master.currentTime;
     slave.requestVideoFrameCallback(onFrame);
   };
@@ -100,6 +107,7 @@ export function slaveVideo(master: HTMLVideoElement, slave: HTMLVideoElement, fp
   master.addEventListener('play', onPlay);
   master.addEventListener('pause', onPause);
   master.addEventListener('seeked', onSeeked);
+  master.addEventListener('ratechange', onRateChange);
   slave.requestVideoFrameCallback(onFrame);
   if (!master.paused) onPlay();
 
@@ -107,6 +115,7 @@ export function slaveVideo(master: HTMLVideoElement, slave: HTMLVideoElement, fp
     master.removeEventListener('play', onPlay);
     master.removeEventListener('pause', onPause);
     master.removeEventListener('seeked', onSeeked);
+    master.removeEventListener('ratechange', onRateChange);
   };
 }
 
