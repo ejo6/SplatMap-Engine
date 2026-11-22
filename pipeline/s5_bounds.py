@@ -170,8 +170,8 @@ def main():
         b = trimesh.creation.box(extents=[cell, top, cell])
         b.apply_translation([lo[0] + (xi + 0.5) * cell, top / 2, lo[2] + (zi + 0.5) * cell])
         boxes.append(b)
-    scene = trimesh.Scene(trimesh.util.concatenate(boxes) if boxes else [])
-    (out / "colliders.glb").write_bytes(scene.export(file_type="glb"))
+    if boxes:  # trimesh can't export an empty scene; no file means no colliders
+        (out / "colliders.glb").write_bytes(trimesh.Scene(trimesh.util.concatenate(boxes)).export(file_type="glb"))
 
     fog = [round(float(c), 3) for c in np.mean(fog_cols, 0)]
     (out / "walk.json").write_text(json.dumps({

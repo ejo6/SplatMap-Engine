@@ -101,7 +101,7 @@ Stages S3–S5 and S9a from PRD §7.2. Each reads and writes `work/<youtubeId>/<
 - **Walkable:** floor cells (|y| < 0.3 m) that were seen, with no occupied voxel from 0.3 m to eye height, within `--radius` of the camera path, and connected to the path.
   - Occupied means 2 or more hits and hits > 0.3 × passes.
   - `walk_sdf.bin` is the signed distance in metres (negative = walkable).
-- **colliders.glb:** one box per obstacle column within 1 m of the walkable area, from the floor to its top occupied voxel. IMG_6714 has 1,232 boxes (296 KB).
+- **colliders.glb:** one box per obstacle column within 1 m of the walkable area, from the floor to its top occupied voxel. IMG_6714 has 1,232 boxes (296 KB). No file is written when there are no boxes.
 - **Fog colour:** mean of the top third of the keyframes. `eyeHeight` is the median camera height.
 - **Also writes:** `S5/walk_debug.png`, a top-down view: green walkable, red blocked, grey seen floor, white camera path.
 - **Copy into a world:** copy the four files to `worlds/<id>/v1/s0/` and set `shots[0].bounds = {walk, colliders}` in the manifest. This step is S9a's job once that exists.
