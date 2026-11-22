@@ -10,6 +10,7 @@
 /worlds/test/
 /worlds/**/*.ply
 /worlds/**/world.spz
+!/worlds/**/people/*/avatar.ply
 
 # model weights and body models (licensed, never commit)
 models/

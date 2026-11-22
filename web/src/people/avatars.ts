@@ -35,6 +35,22 @@ export function inRanges(frame: number, ranges: number[][]): boolean {
   return ranges.some(([a, b]) => frame >= a && frame <= b);
 }
 
+const EDGE_FRAMES = 15; // body placement is unreliable while a person enters or leaves the frame
+
+/** The frame to pose from (KAN-78): `frame` while the person is well inside a visible range, else the nearest
+ * reliable frame: the last one seen (or, before the first appearance, the first). Off-screen people are assumed not
+ * to move. Each range is trimmed by up to EDGE_FRAMES at both ends, where placement flies off as they cross the edge. */
+export function heldFrame(frame: number, ranges: number[][]): number {
+  if (!ranges.length) return frame;
+  const trimmed = ranges.map(([a, b]) => {
+    const m = Math.min(EDGE_FRAMES, Math.floor((b - a) / 4));
+    return [a + m, b - m];
+  });
+  if (inRanges(frame, trimmed)) return frame;
+  const before = trimmed.filter(([, b]) => b < frame).map(([, b]) => b);
+  return before.length ? Math.max(...before) : Math.min(...trimmed.map(([a]) => a));
+}
+
 /** World position of joint j at `frame`: motion[frame][j] @ [rest, 1]. */
 export function jointWorld(motion: Float32Array, joints: number, frame: number, j: number, rest: number[], out: THREE.Vector3) {
   const o = (frame * joints + j) * FLOATS_PER_JOINT;
@@ -79,10 +95,11 @@ export class Avatar {
     this.group.add(splat ? splat.mesh : this.bones, this.shadow);
   }
 
-  /** Pose the avatar at shot frame `frame`; hidden outside its visible ranges. */
+  /** Pose the avatar at shot frame `frame`. A splat avatar holds its last seen pose while off-screen; a skeleton hides. */
   setFrame(frame: number) {
     const { joints, restJoints, motion: m, visible } = this.person;
-    const f = Math.min(Math.max(frame, 0), m.frameCount - 1);
+    let f = Math.min(Math.max(frame, 0), m.frameCount - 1);
+    if (this.splat) f = heldFrame(f, visible);
     this.group.visible = inRanges(f, visible);
     if (!this.group.visible) return;
 

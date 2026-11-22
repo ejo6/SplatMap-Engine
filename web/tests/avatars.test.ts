@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { Avatar, inRanges, jointWorld, type PersonFile } from '../src/people/avatars.ts';
+import { Avatar, heldFrame, inRanges, jointWorld, type PersonFile } from '../src/people/avatars.ts';
 
 const J = 12; // enough joints to include the SMPL-X feet (10, 11)
 
@@ -75,4 +75,15 @@ test('opacity fades the skeleton and scales the contact shadow (A-11 blend)', ()
   a.setFrame(1); // stays faded on the next frame
   assert.ok(Math.abs(shadow.material.opacity - full / 2) < 1e-9);
   assert.equal(((a.group.children[0] as THREE.LineSegments).material as THREE.LineBasicMaterial).opacity, 0.5);
+});
+
+test('heldFrame holds the last reliable frame, or the first before any', () => {
+  const r = [[10, 110], [200, 300]]; // trimmed by 15 frames: [25, 95], [215, 285]
+  assert.equal(heldFrame(50, r), 50);
+  assert.equal(heldFrame(105, r), 95); // leaving the frame
+  assert.equal(heldFrame(150, r), 95); // off-screen: hold
+  assert.equal(heldFrame(400, r), 285);
+  assert.equal(heldFrame(3, r), 25);
+  assert.equal(heldFrame(3, []), 3);
+  assert.equal(heldFrame(11, [[10, 14]]), 11); // short range: trimmed by a quarter, [11, 13]
 });
