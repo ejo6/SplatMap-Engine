@@ -78,3 +78,12 @@ test('floor style: flat path on the floor, marker on the floor, travelled part g
   assert.equal(floor.visible, false);
   assert.ok(marker.position.equals(poseAt(cameras, 10).position)); // back in the air
 });
+
+test('off style hides the path and the marker', () => {
+  const path = new GhostPath(straightLineCameras(10));
+  const [air, marker, floor] = path.group.children;
+  path.setStyle('off');
+  assert.equal(air.visible || marker.visible || floor.visible, false);
+  path.setStyle('air');
+  assert.equal(air.visible && marker.visible, true);
+});

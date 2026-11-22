@@ -24,7 +24,7 @@ const FLOOR_Y = 0.02; // metres, just above the floor so it doesn't z-fight
 const FLOOR_RADIUS = 0.04; // metres, a little wider: it's seen at a grazing angle
 const DONE_OPACITY = 0.85;
 
-export type PathStyle = 'air' | 'floor';
+export type PathStyle = 'off' | 'air' | 'floor';
 
 /** Fraction of the path's length travelled by `frame`. TubeGeometry samples its curve by arc length, so this is also
  * the fraction of tube segments to highlight. `cumulative[i]` is the path length up to camera frame i. */
@@ -94,11 +94,12 @@ export class GhostPath {
     this.done.geometry.setDrawRange(0, segments * PATH_RADIAL_SEGMENTS * 6); // TubeGeometry: 6 indices per quad, segment by segment
   }
 
-  /** SH-12 HUD toggle: the path in the air as the camera flew it, or flat on the floor with the travelled part lit. */
+  /** SH-12 HUD toggle: off, the path in the air as the camera flew it, or flat on the floor with the travelled part lit. */
   setStyle(style: PathStyle) {
     this.style = style;
     this.air.visible = style === 'air';
     this.floor.visible = style === 'floor';
+    this.marker.visible = style !== 'off';
     this.setFrame(this.frame);
   }
 

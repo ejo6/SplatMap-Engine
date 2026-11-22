@@ -16,8 +16,8 @@ const CONTROLS: [string, string][] = [
   ['Shift', 'Run'],
   ['Space', 'Play / pause'],
   ['← / →', '−5 s / +5 s'],
-  ['R', 'Return to the camera'],
-  ['C', 'Ride along'],
+  ['C', 'Rejoin the camera where it is now'],
+  ['R', 'Restart from the beginning'],
   ['F', 'Fog on / off'],
   ['Esc', 'Release the mouse'],
 ];
@@ -72,7 +72,8 @@ export function createHud(opts: {
   const pathGroup = el('div', 'hud-segmented');
   pathGroup.setAttribute('role', 'group');
   pathGroup.setAttribute('aria-label', 'Camera path (walk mode)');
-  const styles: [PathStyle, string][] = [['air', 'Path in air'], ['floor', 'Path on floor']];
+  pathGroup.append(el('span', 'hud-label', 'Path'));
+  const styles: [PathStyle, string][] = [['off', 'Off'], ['air', 'Air'], ['floor', 'Floor']];
   const pathButtons = styles.map(([style, label]) => {
     const b = el('button', 'hud-button', label);
     b.type = 'button';

@@ -50,7 +50,7 @@ function easeOutCubic(t: number): number {
 
 /**
  * Owns the viewer's single camera across its three modes. Ride-along reads `cameras.json`
- * per clock frame; walk is pointer-lock WASD at a fixed eye height; return (R) tweens back
+ * per clock frame; walk is pointer-lock WASD at a fixed eye height; rejoin (C) tweens back
  * to the current ride-along pose without seeking the video.
  */
 export class CameraRig {
@@ -117,8 +117,7 @@ export class CameraRig {
 
   private onKeyDown(e: KeyboardEvent) {
     if (e.repeat) return;
-    if (e.code === 'KeyR') return this.startReturn();
-    if (e.code === 'KeyC') return this.toggleRideAlong();
+    if (e.code === 'KeyC') return this.startReturn(); // R (restart from the top) lives in main.ts: it needs the video
     if (document.pointerLockElement !== this.canvas) return;
     if (WASD_CODES.has(e.code)) {
       this.enterWalk();
@@ -145,14 +144,14 @@ export class CameraRig {
     this.mode = 'walk';
   }
 
-  /** C: an instant switch, unlike R's 400ms tween (PRD §10.7). */
-  private toggleRideAlong() {
+  /** R (main.ts): snap back to ride-along at the current frame; the caller then seeks the video to the start. */
+  rideAlong() {
     if (this.mode === 'scrubbing') return;
-    if (this.mode === 'ride-along') this.enterWalk();
-    else this.mode = 'ride-along';
+    this.mode = 'ride-along';
+    this.applyPose(poseAt(this.cameras, this.frame));
   }
 
-  /** R: tween to the current original pose over 400ms, without seeking (PRD §10.2). */
+  /** C: rejoin the original camera where it is now (the ghost-path marker), tweening over 400ms without seeking (PRD §10.2). */
   private startReturn() {
     if (this.mode === 'ride-along' || this.mode === 'scrubbing') return;
     this.returnFrom.position.copy(this.camera.position);
