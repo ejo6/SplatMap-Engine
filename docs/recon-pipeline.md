@@ -114,7 +114,7 @@ Stages S3–S5 and S9a from PRD §7.2. Each reads and writes `work/<youtubeId>/<
   - The video, thumbs and cameras.
   - S5 bounds, if S5 ran: sets `bounds` and `qa.fogRadius`.
   - The S8 people layer, if S8 ran: sets `peopleLayer`.
-  - Each `S6/people/p*/` folder (person.json, motion.bin, plus any avatar files S7 puts there): fills `shots[0].people`.
+  - Each `S6/people/p*/` folder (person.json, motion.bin): fills `shots[0].people`. If S7 made `S7/people/p*/avatar.ply` and `skin.bin`, they are copied in and `person.json.avatar` is set to `{kind: "splat-lbs", url, skin, splats}` (PRD §8.4). `.gitignore` ignores `*.ply` under `worlds/` except `people/*/avatar.ply`.
 - **Manifest:**
   - Title and scene card come from `S1/director.json`, falling back to the ingest title.
   - `credit.url` is set only for 11-character YouTube IDs.

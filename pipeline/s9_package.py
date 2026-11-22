@@ -4,7 +4,8 @@ Assembles the world package from the stage outputs. Optional pieces (S5 bounds, 
 S6 people) are included when their stage has run, so a world can be packaged before people exist.
 
   in : work/<id>/S0/{video.mp4, thumbs.jpg, thumbs.json, ingest.json}, S1/{shots.json, director.json},
-       S3/cameras.json, S4/{world.ply, train.json}, S5/* (optional), S6/people/p*/ (optional), S8/holo.* (optional)
+       S3/cameras.json, S4/{world.ply, train.json}, S5/* (optional), S6/people/p*/ + S7/people/p*/ (optional),
+       S8/holo.* (optional)
   out: <worlds-root>/<id>/v<version>/ (PRD §8.2 layout) with manifest.json
 """
 import argparse
@@ -90,9 +91,16 @@ def main():
         shutil.copy(w / "S8/holo.mp4", s0 / "holo.mp4")
         shutil.copy(w / "S8/holo.json", s0 / "holo.json")
         shot["peopleLayer"] = {"video": "s0/holo.mp4", "meta": "s0/holo.json"}
-    for pdir in sorted((w / "S6/people").glob("p*")):  # A-04 (+ A-06 avatar files, once S7 writes them there)
-        shutil.copytree(pdir, s0 / "people" / pdir.name, dirs_exist_ok=True)
+    for pdir in sorted((w / "S6/people").glob("p*")):  # A-04 motion; A-06 avatar when S7 made one
+        dst = s0 / "people" / pdir.name
+        shutil.copytree(pdir, dst, dirs_exist_ok=True)
         person = json.loads((pdir / "person.json").read_text())
+        if (av := w / "S7/people" / pdir.name / "avatar.ply").exists():
+            shutil.copy(av, dst / "avatar.ply")
+            shutil.copy(av.with_name("skin.bin"), dst / "skin.bin")
+            person["avatar"] = {"kind": "splat-lbs", "url": "avatar.ply", "skin": "skin.bin",
+                                "splats": (dst / "skin.bin").stat().st_size // 32}  # N x 8 float32
+            (dst / "person.json").write_text(json.dumps(person))
         shot["people"].append({"id": person["id"], "label": person.get("label", "person"),
                                "person": f"s0/people/{pdir.name}/person.json"})
     progress(90)
