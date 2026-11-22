@@ -79,25 +79,10 @@
       observedLike = pill;
     }
 
-    // Look exactly like YouTube's own text pill in this row (Share, Save...): copy its classes, minus the icon
-    // modifiers (our pill has no icon), and the spacing YouTube gives its row item. Fall back to the Like pill.
-    const ytButton = [...item.parentElement.querySelectorAll("button")]
-      .find((b) => b !== button && !item.contains(b) && b.textContent.trim());
-    if (ytButton) {
-      const classes = [...ytButton.classList].filter((c) => !/--icon/.test(c)).join(" ");
-      if (button.className !== classes) button.className = classes;
-      const ytItem = ytButton.closest("#top-level-buttons-computed > *") ?? ytButton;
-      button.style.marginLeft = getComputedStyle(ytItem).marginLeft;
-      button.style.height = "";
-    }
-
-    // YouTube wrappers can have a baseline or padding offset. Centre on the visible control.
-    const target = (ytButton ?? pill).getBoundingClientRect();
+    // YouTube wrappers can have a baseline or padding offset. Match the visible control.
+    const target = pill.getBoundingClientRect();
     if (!target.height) return;
-    if (!ytButton) {
-      button.style.height = target.height + "px";
-      button.style.marginLeft = "8px";
-    }
+    button.style.height = target.height + "px";
     const rect = button.getBoundingClientRect();
     const shift = target.top + target.height / 2 - rect.top - rect.height / 2;
     if (Math.abs(shift) > 0.1) {
