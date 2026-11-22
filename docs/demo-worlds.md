@@ -13,6 +13,11 @@ repo history for good, so re-commit a world only when it really changed.
 |---|---|---|---|---|
 | `9lY7iZl1KbI` | Misty forest path | YouTube, 0–30 s | 62 MB | No people. G2 alignment PSNR 27.6 / SSIM 0.89 (KAN-30) |
 
+`9lY7iZl1KbI` has a `thumb.jpg` (cropped from `thumbs.json`'s first sprite tile) referenced by
+`web/public/gallery.json` for the landing page gallery (FR-04, KAN-83). `worlds/test/` (gate G1,
+see `docs/world-format.md`) is a git-ignored local fixture, so it's left out of the committed
+gallery — it would 404 on anyone else's clone.
+
 ### Checking spatial audio in desktop Chrome
 
 Open a world with an audible soundtrack and use headphones. Click the viewer to enable sound and capture the mouse. Ride-along uses the original stereo mix. Face along the recorded path and strafe right with D. The soundtrack should move toward the left ear. Turn around in place and the bearing should reverse. Press R to return to the recorded camera and restore the original mix. Seek to another time and repeat. Audio follows the master video through pauses, seeks, and loops. Unreconstructed intervals use the original mix.
