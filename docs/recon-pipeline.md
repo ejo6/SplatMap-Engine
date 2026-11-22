@@ -88,6 +88,23 @@ Stages S3–S5 and S9a from PRD §7.2. Each reads and writes `work/<youtubeId>/<
   - Renders at the source poses line up with the frames.
   - The main walker isn't baked in. Where she blocked the background for the whole clip there's a dark unseen smear; that's the hole S4a (E-07, LaMa) fills.
 
+## S4b Atlas fill (optional): `pipeline/s4b_fill.py` (E-12)
+
+- **Run by hand on a clip.** It isn't in `run.py`. It uses the paid World Labs Atlas API, so log spend in `gpu-ledger.md`.
+- **Env:** `recon`, CPU only. Needs `WLT_API_KEY`: an Atlas project key from atlas.worldlabs.ai/developers with `tasks.create`, `operations.read`, `assets.create` and `assets.read`. `pipe_env.sh` loads it from `/workspace/.env`. Legacy Marble API calls return 401 with these keys.
+- **Run:** `python pipeline/s4b_fill.py --work work/<id> [--frames 128] [--draft] [--keep-dist 0.2] [--margin 1] [--force]`. The operation and its SPZ are cached in `S4/atlas/` (or `S4/atlas_draft/`), so `--force` redoes only the merge and never submits again.
+- **Request:** `POST /api/v2/tasks:posedImages2Splats` on `https://api.atlas.worldlabs.ai/api/v2`, with header `WLT-Api-Key`. Each of `--frames` keyframes is sent as:
+  - the JPEG, uploaded as an asset;
+  - S3 depth resized to 1280×720 as a linear EXR in metres;
+  - the S2 union mask inverted (1 = keep), so people are excluded;
+  - the S3 camera (`position`, `quaternion` xyzw, `coordinateSystem: "rub"`, pixel intrinsics).
+- **Refine vs draft:** `refine=true` is the generative pass: Atlas places extra cameras, repairs their renders and retrains, which fills space the video never saw. `--draft` (`refine=false`, at most 32 frames) only rebuilds the views it's given and is billed as a draft.
+- **Frame:** the SPZ comes back in our world frame and metres. On the IMG_6714 draft: mean offset under 2 cm, scale ratio 0.998, and every flipped axis convention fit worse. No alignment step is needed.
+- **SPZ:** `read_spz` decodes Niantic SPZ v2/v3 (gzip, 24-bit fixed-point positions, smallest-three quaternions). Checked against a `build-lod` SPZ of our own splat: positions within 0.1 mm, opacity within 0.003.
+- **Merge:** Atlas splats more than `--keep-dist` from a solid real splat and inside the S4 scene box grown by `--margin` are appended to the real ones, with higher SH zeroed. The draft scattered floaters up to 38 m out, which is why the box is applied.
+- **Outputs:** `S4/world_filled.ply` (`world.ply` is untouched) and `S4/fill.json` `{operationId, realCount, fillCount, overlapMedian}`. Splats from index `realCount` on are generated.
+- **Use it:** S9a still packages `world.ply`. To view the fill, build the LoD from `world_filled.ply` by hand.
+
 ## S5 bounds: `pipeline/s5_bounds.py` (E-06)
 
 - **Env:** `recon`, CPU only. About 25 s on IMG_6714 (224 keyframes).

@@ -57,7 +57,7 @@ On any YouTube watch page, a **Step inside** button sits next to Like. Clicking 
 - Object labels, talking to characters, picking up objects.
 - Processing a new video live on stage. Judges only see pre-baked worlds.
 
-**Stretch (P2):** playback speed control, spatial audio, mini-map, the Marble or HY-World room-fill experiment, multi-shot location merging, Canada Life mode, and processing full-length videos beyond the 60 s window.
+**Stretch (P2):** playback speed control, spatial audio, mini-map, the World Labs Atlas room-fill experiment (S4b), multi-shot location merging, Canada Life mode, and processing full-length videos beyond the 60 s window.
 
 ---
 
@@ -69,7 +69,7 @@ On any YouTube watch page, a **Step inside** button sits next to Like. Clicking 
 | Cache | Global, keyed by `{youtubeId, pipelineVersion}`. A cache hit opens instantly for anyone. | Compute once, serve from the CDN. |
 | People | **Hybrid** (§10.5). An LHM Gaussian avatar per tracked person, driven by per-frame body motion, plus a real-pixel "people layer" (masked RGB + depth). The view blends from real pixels near the original camera to the avatar off-axis. | A depth video alone has no back, so you can't walk around it. Avatars alone lose the real face. Orbis shipped avatars. |
 | Unseen space | **Fog by default.** No generated fill in the default path. | Fill means invention. Orbis rejected Marble outputs for invented fixtures and a warped bench. Fog matches the "discover the unknown" theme. |
-| Marble | **Not used in the default path.** Optional P2 experiment on one hero clip, capped at $5 (§11). | The API costs about $1.20 per world, but it invents content. API credits are separate from Marble app credits, and the app's free plan doesn't accept video. World Labs was just acquired by AMD, so the API's future is unclear. |
+| World Labs Atlas | **Optional fill stage S4b, run by hand on hero clips** (no fixed spend cap; log spend in the ledger). Uses Atlas `posedImages2Splats` with our own cameras, depth and masks, so the result lands in our world frame with no alignment. | It invents content where the video never looked, so generated splats are kept only outside the observed area and are marked for tinting. The legacy Marble API is not used: Atlas keys don't work on it. |
 | Scene cuts | P0: reconstruct only the **longest usable single shot**. P1: one world per shot, fog crossfade at each cut. | Ignoring cuts doesn't just look stagnant, it **corrupts** the result. The pose solver forces two places into one frame, giving ghost double-exposed geometry, a teleporting camera and a splat that matches neither shot. |
 | Video length | Any URL is accepted. The MVP processes a window of **60 s or less**. If the video is longer, Gemini picks the highlight window. Full length is P2. | Compute: about 45–80 GPU-min per 60 s (estimate). |
 | Scrubbing | When you grab the seek bar, the camera glides back to the original camera pose and follows the original path while you drag. On release, playback resumes in ride-along until you move (§10.3). | The original viewpoint is the one place where everything is guaranteed correct. |
@@ -428,7 +428,7 @@ Rules:
 
 - **Budget:** a working cap of **$60 out of pocket** (the team can change it). Eric keeps `docs/gpu-ledger.md` with one line per session: date, box, hours and cost.
 - **Estimate:** Two clips at about 1 h each, plus about 10 h of setup and debugging, is roughly 12 GPU-hours, about $30 on an A100.
-- **Paid APIs:** Gemini on the free tier. Marble only through ticket E-12: one hero clip, $5 or less, API credits only, logged in the ledger. Stop the GPU box whenever it's idle.
+- **Paid APIs:** Gemini on the free tier. World Labs Atlas through S4b (E-12), run by hand per clip and logged in the ledger. Stop the GPU box whenever it's idle.
 
 ---
 
@@ -479,7 +479,7 @@ Kevin hand-selects two clips: a walking vlog with 1–2 people and a scenic walk
 | Cameras | DA3 global solve | DA3 chunks + similarity alignment, or Pi3X | VGGT / COLMAP on keyframes |
 | Background | gsplat with masked losses + fog | Brush | Swap the clip |
 | People | Avatar + people layer + blend | Avatar only | People layer only (no walk-around) |
-| Unseen space | Fog | Tighter fog radius | Marble hero clip (E-12) |
+| Unseen space | Fog | Tighter fog radius | Atlas fill, S4b (E-12) |
 | Viewer | Spark .RAD LoD | SPZ, lower splat budget | Recorded walkthrough video |
 
 **Top risks**
