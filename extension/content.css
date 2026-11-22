@@ -1,5 +1,9 @@
 #step-into-the-video-button {
   align-self: center;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
   appearance: none;
   background: var(--yt-spec-badge-chip-background, #eee);
   border: 0;
@@ -7,9 +11,9 @@
   color: var(--yt-spec-text-primary, #0f0f0f);
   cursor: pointer;
   flex-shrink: 0;
-  font: 500 14px/36px Roboto, Arial, sans-serif;
+  font: 500 14px/1 Roboto, Arial, sans-serif;
   height: 36px;
-  margin-inline-start: 8px;
+  margin-inline: 8px;
   padding-inline: 16px;
   white-space: nowrap;
 }
