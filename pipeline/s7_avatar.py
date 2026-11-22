@@ -91,12 +91,25 @@ def main():
         person = json.loads(pj.read_text())
         oid = person["sourceInstance"]
         pdir = out / person["id"]
+        if (pdir / "skin.bin").exists() and not args.force:
+            continue  # already built (a rerun after one person failed)
         pdir.mkdir(parents=True, exist_ok=True)
         betas = np.zeros(smplx.smpl_x.shape_param_dim, np.float32)
         b = np.load(work / "S6" / "body" / f"{oid}.npz")["betas"].reshape(-1)
         betas[: len(b)] = b
-        image = identity_image(work, oid, pdir / "identity.png")
-        lhm.infer_mesh(str(image), dump_tmp_dir=str(pdir), dump_mesh_dir=str(pdir), shape_param=betas)
+        # LHM asserts the person is taller than wide (sitting, lying or edge-clipped crops fail): try S7a's next picks.
+        ranked = work / "S7" / "identity.json"
+        ranked = [work / "S7" / c["crop"] for i in json.loads(ranked.read_text())["persons"] if i["id"] == oid
+                  for c in i["ranked"]] if ranked.exists() else []
+        for image in [identity_image(work, oid, pdir / "identity.png")] + ranked:
+            try:
+                lhm.infer_mesh(str(image), dump_tmp_dir=str(pdir), dump_mesh_dir=str(pdir), shape_param=betas)
+                break
+            except AssertionError:
+                print(f"S7: {person['id']} rejected {Path(image).name} (wider than tall)", file=sys.stderr)
+        else:
+            print(f"S7: skip {person['id']}: no usable identity crop", file=sys.stderr)
+            continue
         (pdir / f"{Path(image).stem}.ply").replace(pdir / "avatar.ply")
         skin.tofile(pdir / "skin.bin")
         progress(100 * (n + 1) / len(people))
