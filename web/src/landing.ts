@@ -140,8 +140,19 @@ const error = document.querySelector('#error')!;
 const thumb = document.querySelector<HTMLImageElement>('.thumb')!;
 const echo = document.querySelector<HTMLImageElement>('.echo')!;
 const showThumb = (show: boolean) => lake.classList.toggle('has-thumb', show);
-thumb.addEventListener('load', () => showThumb(true));
-thumb.addEventListener('error', () => showThumb(false));
+// Sharpest first: maxres is 1280x720 but missing on some videos, where YouTube answers with a 404 or a 120x90
+// placeholder; then 640x480 and 480x360 (both letterboxed, cropped by object-fit). The image is shown up to 640px wide.
+const THUMB_SIZES = ['maxresdefault', 'sddefault', 'hqdefault'];
+let thumbId = '';
+let thumbTry = 0;
+const loadThumb = () => (thumb.src = `https://i.ytimg.com/vi/${thumbId}/${THUMB_SIZES[thumbTry]}.jpg`);
+const nextThumb = () => (++thumbTry < THUMB_SIZES.length ? loadThumb() : showThumb(false));
+thumb.addEventListener('load', () => {
+  if (thumb.naturalWidth <= 120) return void nextThumb();
+  echo.src = thumb.src;
+  showThumb(true);
+});
+thumb.addEventListener('error', () => void nextThumb());
 
 input.addEventListener('input', () => {
   error.textContent = '';
@@ -152,9 +163,10 @@ input.addEventListener('input', () => {
     return;
   }
   stir = 26; // the water answers
-  const url = `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
-  if (thumb.src === url && thumb.complete) showThumb(thumb.naturalWidth > 0); // same link again: no new load event
-  else thumb.src = echo.src = url;
+  if (id === thumbId) return void showThumb(thumb.complete && thumb.naturalWidth > 120); // same link again: no new load event
+  thumbId = id;
+  thumbTry = 0;
+  loadThumb();
 });
 
 form.addEventListener('submit', (event) => {
