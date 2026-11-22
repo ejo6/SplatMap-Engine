@@ -37,7 +37,7 @@ STAGES = [
     ("S6a", "s6_body.py", "people", ["S2", "S3b"], "people_failed"),
     ("S6b", "s6_place.py", "people", ["S6a"], "people_failed"),
     ("S7a", "s7_identity.py", "ingest", ["S2"], "people_failed"),
-    ("S7", "s7_avatar.py", "lhm", ["S7a"], "people_failed"),
+    ("S7", "s7_avatar.py", "lhm", ["S6b", "S7a"], "people_failed"),
     ("S8", "s8_people_layer.py", "depth", ["S2", "S3b"], "people_failed"),
     ("S9a", "s9_package.py", "recon", ["S5", "S6b", "S7", "S8"], "internal"),
     ("S9b", "s9_qa.py", "ingest", ["S9a"], "qa_rejected"),
