@@ -10,6 +10,7 @@ import { loadPeople } from './people';
 import type { WalkSdfGrid } from './walk-bounds';
 import { bindFogToggle, FogVolume } from './fog';
 import { isUnreconstructed, OutOfShotFx, type UnreconstructedRange } from './out-of-shot';
+import { GhostPath } from './ghost-path';
 import './style.css';
 
 // SH-01: viewer scaffold + world loader (PRD §7.4, §8, §10.8, FR-05)
@@ -155,6 +156,10 @@ async function loadWorld(manifest: Manifest, base: string) {
   const overlay = new VideoOverlay(video, cameras);
   scene.add(overlay.mesh);
 
+  // SH-11: ghost camera path, walk mode only (PRD FR-30)
+  const ghostPath = new GhostPath(cameras);
+  scene.add(ghostPath.group);
+
   // A-09/A-10: people layer + avatars (PRD §10.5); empty if the shot has neither.
   const people = await loadPeople(base, shot, video, manifest.video.fps, cameras);
   scene.add(people.group);
@@ -169,6 +174,7 @@ async function loadWorld(manifest: Manifest, base: string) {
     rig.setFrame(state.frame);
     overlay.setFrame(poseAt(cameras, state.frame));
     people.setFrame(state.frame);
+    ghostPath.setFrame(state.frame);
     outOfShot = isUnreconstructed(state.t, unreconstructed);
     outOfShotFx.setActive(outOfShot);
   });
@@ -187,6 +193,7 @@ async function loadWorld(manifest: Manifest, base: string) {
     timer.update();
     const dt = timer.getDelta();
     rig.update(dt);
+    ghostPath.setVisible(rig.mode === 'walk');
     outOfShotFx.update(rig.camera, dt);
     world.opacity = outOfShotFx.presence;
     people.group.visible = outOfShotFx.presence > 0;
