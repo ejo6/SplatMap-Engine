@@ -1,7 +1,5 @@
 # Step Into the Video
 
-*Every video is a window. We turn it into a door.* — Hack Western 13
-
 On a YouTube watch page, a **Step inside** button sits next to Like. Clicking it opens a new tab where the video becomes a 3D place you can walk around in, and around the people in it, while the original video and audio keep playing. Everything the camera saw is real reconstructed geometry. We don't invent what wasn't filmed.
 
 ## How it works
