@@ -70,6 +70,13 @@ def save_mask(mask, path):
     Image.fromarray(mask.cpu().numpy().astype(np.uint8) * 255).save(path)
 
 
+def selected_frames(work, n):
+    """S1a's selected shot as frames [a, b); the whole clip if S1a didn't run (PRD §3: one shot per world)."""
+    p = work / "S1" / "shots.json"
+    sel = json.loads(p.read_text())["selected"] if p.exists() else None
+    return (sel["startFrame"], min(sel["endFrame"], n)) if sel else (0, n)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--work", required=True, type=Path, help="work/<youtubeId>")
@@ -89,6 +96,7 @@ def main():
     if not frame_paths:
         sys.exit(f"no frames in {args.work / 'S0' / 'frames'}")
     frames = [Image.open(p).convert("RGB") for p in frame_paths]
+    a, b = selected_frames(args.work, len(frames))
     width, height = frames[0].size
     prompts = load_prompts(args.work / "S1" / "director.json")
 
@@ -130,6 +138,8 @@ def main():
             masks = o["masks"]
             union = masks.any(0) if len(masks) else torch.zeros(height, width, dtype=torch.bool)
             save_mask(dilate(union.to(device), args.dilate), union_dir / png)
+            if not a <= f < b:  # other shots: union only (keeps S4 clean), no per-person tracks for S6-S8
+                continue
             for oid, m, box, score in zip(o["object_ids"].tolist(), masks, o["boxes"].tolist(), o["scores"].tolist()):
                 t = tracks.setdefault(oid, {"prompt": prompt_of.get(oid), "frames": [], "boxes": [], "scores": []})
                 t["frames"].append(f)
