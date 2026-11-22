@@ -36,7 +36,7 @@ export class MasterClock {
     this.video = video;
     this.shot = shot;
     this.fps = fps;
-    this.state = { t: shot.start, frame: 0, shotId: shot.id, playing: false };
+    this.state = { t: video.currentTime, frame: shotFrame(video.currentTime, shot, fps), shotId: shot.id, playing: false };
 
     const onFrame = (_now: number, metadata: VideoFrameCallbackMetadata) => {
       this.publish(metadata.mediaTime);

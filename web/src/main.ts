@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { SparkRenderer, SplatMesh } from '@sparkjsdev/spark';
+import { handoffPosition } from './handoff';
 import { MasterClock, unmuteOnFirstGesture } from './clock';
 import { CameraRig, poseAt, type CamerasFile } from './camera';
 import { VideoOverlay } from './overlay';
@@ -26,7 +27,7 @@ function setStatus(text: string) {
 }
 
 interface Manifest {
-  video: { url: string; fps: number; width: number; height: number; thumbs: { sprite: string; index: string } };
+  video: { url: string; sourceStart?: number; fps: number; width: number; height: number; thumbs: { sprite: string; index: string } };
   shots: {
     id: string;
     start: number;
@@ -162,7 +163,7 @@ async function loadWorld(manifest: Manifest, base: string) {
   video.src = base + manifest.video.url;
   video.muted = true;
   video.playsInline = true;
-  video.autoplay = true;
+  video.preload = 'auto';
   let soundtrack: SpatialSoundtrack | undefined;
   unmuteOnFirstGesture(video, () => {
     void startSpatialSoundtrack(video).then(track => { soundtrack = track; });
@@ -187,6 +188,20 @@ async function loadWorld(manifest: Manifest, base: string) {
   let outOfShot = false;
 
   const recordedPosition = new THREE.Vector3();
+  if (video.readyState < HTMLMediaElement.HAVE_METADATA) {
+    const loaded = await new Promise<boolean>(resolve => {
+      if (video.error) return resolve(false);
+      video.addEventListener('loadedmetadata', () => resolve(true), { once: true });
+      video.addEventListener('error', () => resolve(false), { once: true });
+    });
+    if (!loaded) {
+      setStatus('Could not load the world video.');
+      return;
+    }
+  }
+  const start = handoffPosition(new URLSearchParams(location.search).get('t'),
+    manifest.video.sourceStart ?? 0, video.duration, manifest.video.fps);
+  video.currentTime = start.time;
   new MasterClock(video, shot, manifest.video.fps).subscribe((state) => {
     rig.setFrame(state.frame);
     const pose = poseAt(cameras, state.frame);
@@ -197,7 +212,7 @@ async function loadWorld(manifest: Manifest, base: string) {
     outOfShot = isUnreconstructed(state.t, unreconstructed);
     outOfShotFx.setActive(outOfShot);
   });
-  void video.play();
+  if (start.play) void video.play();
 
   // SH-06: scrub state machine (PRD §10.3, FR-20, NFR-04)
   const scrub = await ScrubController.create(video, shot, manifest.video.fps, cameras, rig, overlay, base, thumbs);
