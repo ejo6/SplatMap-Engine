@@ -92,7 +92,7 @@ def main():
         oid = person["sourceInstance"]
         pdir = out / person["id"]
         pdir.mkdir(parents=True, exist_ok=True)
-        betas = np.zeros(smplx.shape_param_dim, np.float32)
+        betas = np.zeros(smplx.smpl_x.shape_param_dim, np.float32)
         b = np.load(work / "S6" / "body" / f"{oid}.npz")["betas"].reshape(-1)
         betas[: len(b)] = b
         image = identity_image(work, oid, pdir / "identity.png")
