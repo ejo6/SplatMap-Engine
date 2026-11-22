@@ -98,7 +98,7 @@ Stages S3–S5 and S9a from PRD §7.2. Each reads and writes `work/<youtubeId>/<
   - From each keyframe, rays (every 4th depth pixel, up to 15 m) add a *hit* at the surface voxel and a *pass* to every voxel in front of it.
   - Rays also sum their directions per voxel to give the angular spread.
 - **coverage.bin:** `min(1, views/8) × (0.5 + 0.5·min(1, spread/0.3))` × 255. Voxels with 3 or more solid splats get at least 102.
-- **Walkable:** floor cells (|y| < 0.3 m) that were seen, with no occupied voxel from 0.3 m to eye height, within `--radius` of the camera path, and connected to the path.
+- **Walkable:** floor cells (|y| < 0.3 m) that were seen (floor within 1.5 m of the camera path counts as seen, since it's rarely in frame), with no occupied voxel from 0.3 m to eye height, within `--radius` of the camera path, and connected to the path.
   - Occupied means 2 or more hits and hits > 0.3 × passes.
   - `walk_sdf.bin` is the signed distance in metres (negative = walkable).
 - **colliders.glb:** one box per obstacle column within 1 m of the walkable area, from the floor to its top occupied voxel. IMG_6714 has 1,232 boxes (296 KB). No file is written when there are no boxes.
