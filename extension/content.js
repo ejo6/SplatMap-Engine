@@ -1,6 +1,8 @@
 (() => {
   const BUTTON_ID = "step-into-the-video-button";
   const observer = new MutationObserver(scheduleUpdate);
+  const sizes = new ResizeObserver(scheduleUpdate);
+  let observedLike;
   let observedRoot;
   let updateScheduled = false;
 
@@ -14,7 +16,7 @@
     const segmented = actions.querySelector(
       "ytd-segmented-like-dislike-button-renderer, segmented-like-dislike-button-view-model",
     );
-    if (segmented) return segmented.closest("ytd-menu-renderer > *") ?? segmented;
+    if (segmented) return segmented;
 
     return [...actions.querySelectorAll("button[aria-label], [role=button][aria-label]")]
       .find((button) => /^like(?:$|[\s.,:])/i.test(button.getAttribute("aria-label")));
@@ -53,10 +55,14 @@
     const actions = metadataMatches && watch.querySelector("#actions");
     const like = actions && likeControl(actions);
     if (!like) {
+      sizes.disconnect();
+      observedLike = null;
       currentButton?.remove();
       return;
     }
-    if (like.nextElementSibling === currentButton && currentButton) return;
+    // The menu can also contain Share and Save. Anchor to the pill's own row item.
+    const item = like.closest("#top-level-buttons-computed > *") ?? like;
+    const pill = like.querySelector("button, [role=button]") ?? like;
 
     const button = currentButton ?? document.createElement("button");
     if (!currentButton) {
@@ -65,7 +71,24 @@
       button.textContent = "Step inside";
       button.addEventListener("click", openViewer);
     }
-    like.after(button);
+    if (item.nextElementSibling !== button) item.after(button);
+    if (observedLike !== pill || !currentButton) {
+      sizes.disconnect();
+      sizes.observe(pill);
+      sizes.observe(item.parentElement);
+      observedLike = pill;
+    }
+
+    // YouTube wrappers can have a baseline or padding offset. Match the visible control.
+    const target = pill.getBoundingClientRect();
+    if (!target.height) return;
+    button.style.height = target.height + "px";
+    const rect = button.getBoundingClientRect();
+    const shift = target.top + target.height / 2 - rect.top - rect.height / 2;
+    if (Math.abs(shift) > 0.1) {
+      const offset = parseFloat(button.style.top) || 0;
+      button.style.top = (offset + shift) + "px";
+    }
   }
 
   function scheduleUpdate() {
@@ -76,5 +99,6 @@
 
   document.addEventListener("yt-navigate-finish", scheduleUpdate);
   window.addEventListener("popstate", scheduleUpdate);
+  window.addEventListener("resize", scheduleUpdate);
   update();
 })();
