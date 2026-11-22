@@ -2,6 +2,7 @@ import '@fontsource-variable/bricolage-grotesque/opsz.css';
 import './landing.css';
 import { youtubeId } from './youtube';
 import { waterlineY } from './waterline';
+import { loadWorlds, mountCarousel } from './carousel';
 
 // K-11 landing page (PRD §1, §4.2, FR-03/04). The hero is a mountain lake: the reflection is the flat video,
 // the land above the waterline is the world, and the link field sits on the waterline between them.
@@ -52,7 +53,7 @@ app.innerHTML = `
   <section class="band worlds" id="worlds" aria-labelledby="worlds-title">
     <h2 id="worlds-title">Worlds you can walk into</h2>
     <p class="lede">Each one began as a YouTube video. Open one to ride along with its camera, then step off the path.</p>
-    <div id="gallery" class="gallery" aria-live="polite"><p class="empty">Loading worlds…</p></div>
+    <div id="gallery" class="carousel"><p class="empty">Loading worlds…</p></div>
   </section>
 
   <section class="band how" id="how" aria-labelledby="how-title">
@@ -178,58 +179,13 @@ form.addEventListener('submit', (event) => {
     input.focus();
     return;
   }
-  if (reduceMotion) return location.assign('/w/' + id);
-  lake.classList.add('rising'); // rise through the waterline into the peaks, then open the world
-  setTimeout(() => location.assign('/w/' + id), 720);
+  // No new videos are processed (KAN-88): a world we already built opens, anything else gets the GPU notice.
+  void loadWorlds().catch(() => []).then((worlds) => {
+    if (!worlds.some((w) => w.youtubeId === id)) return location.assign('/unavailable');
+    if (reduceMotion) return location.assign('/w/' + id);
+    lake.classList.add('rising'); // rise through the waterline into the peaks, then open the world
+    setTimeout(() => location.assign('/w/' + id), 720);
+  });
 });
 
-// --- Gallery (gallery.json, PRD §9): title, thumbnail and creator credit for every world. ---
-async function loadGallery() {
-  const gallery = document.querySelector('#gallery')!;
-  const say = (text: string) => {
-    const p = document.createElement('p');
-    p.className = 'empty';
-    p.textContent = text;
-    gallery.replaceChildren(p);
-  };
-  try {
-    const response = await fetch('/gallery.json');
-    if (!response.ok) throw new Error('Gallery unavailable');
-    const worlds = await response.json();
-    if (!Array.isArray(worlds)) throw new Error('Invalid gallery');
-    gallery.replaceChildren();
-    for (const world of worlds) {
-      if (!world || !/^[\w-]{11}$/.test(world.youtubeId) ||
-          ![world.title, world.credit, world.thumb, world.youtubeId].every((v) => typeof v === 'string' && v.trim())) continue;
-      const card = document.createElement('a');
-      card.className = 'world';
-      card.href = '/w/' + world.youtubeId;
-      const img = new Image();
-      img.alt = '';
-      img.loading = 'lazy';
-      img.src = world.thumb;
-      const title = document.createElement('strong');
-      title.textContent = world.title;
-      const credit = document.createElement('small');
-      credit.textContent = 'Video by ' + world.credit;
-      card.append(img, title, credit);
-      gallery.append(card);
-    }
-    if (!gallery.childElementCount) {
-      // Two mist-filled slots for the two demo worlds still being baked (docs/clips.md), then the honest note.
-      const slots = [1, 2].map(() => {
-        const slot = document.createElement('div');
-        slot.className = 'slot';
-        slot.setAttribute('aria-hidden', 'true');
-        return slot;
-      });
-      const note = document.createElement('p');
-      note.className = 'slot-note';
-      note.textContent = 'The first two worlds are still being built from their videos. They’ll appear here the moment you can walk into them.';
-      gallery.replaceChildren(...slots, note);
-    }
-  } catch {
-    say('The worlds couldn’t load. Refresh the page to try again.');
-  }
-}
-void loadGallery();
+void mountCarousel(document.querySelector<HTMLElement>('#gallery')!);
