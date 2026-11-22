@@ -13,7 +13,6 @@ A world folder needs only what the viewer loads: `manifest.json`, `video.mp4`, `
 | ID | Title | In git | Notes |
 |---|---|---|---|
 | `9lY7iZl1KbI` | Misty forest path | yes | No people. G2 alignment PSNR 27.6 / SSIM 0.89 (KAN-30) |
-| `2KanGOaQjZI` | Snowy summit climb | no | No people |
 | `2PBXchYQdao` | Modern living room | no | No people |
 | `CEl6P5wo6ro` | Dark hallway | no | No people |
 | `CThxyXWWqA0` | Hilltop overlook | no | 10 people, holo layer |

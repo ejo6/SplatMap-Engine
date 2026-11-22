@@ -156,7 +156,6 @@ To get another world, copy its folder (for example `worlds/CThxyXWWqA0/`) from t
 | World | ID | In git |
 |---|---|---|
 | Misty forest path | `9lY7iZl1KbI` | yes |
-| Snowy summit climb | `2KanGOaQjZI` | no |
 | Modern living room | `2PBXchYQdao` | no |
 | Dark hallway | `CEl6P5wo6ro` | no |
 | Hilltop overlook (10 people) | `CThxyXWWqA0` | no |
