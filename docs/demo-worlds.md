@@ -18,6 +18,12 @@ repo history for good, so re-commit a world only when it really changed.
 see `docs/world-format.md`) is a git-ignored local fixture, so it's left out of the committed
 gallery — it would 404 on anyone else's clone.
 
+**Landing and /unavailable (KAN-88).** No new videos are processed for the demo. The landing form opens `/w/<id>`
+only if `<id>` is in `gallery.json`; any other valid link goes to `/unavailable` ("The GPU cluster is unavailable").
+Both pages show `gallery.json` as a rotating carousel (`web/src/carousel.ts`). Each slide uses YouTube's 1280×720
+`maxresdefault.jpg` and falls back to the world's `thumb.jpg`. To add a world to both, commit it under `worlds/`
+and add one entry to `gallery.json`.
+
 ### Checking spatial audio in desktop Chrome
 
 Open a world with an audible soundtrack and use headphones. Click the viewer to enable sound and capture the mouse. Ride-along uses the original stereo mix. Face along the recorded path and strafe right with D. The soundtrack should move toward the left ear. Turn around in place and the bearing should reverse. Press R to return to the recorded camera and restore the original mix. Seek to another time and repeat. Audio follows the master video through pauses, seeks, and loops. Unreconstructed intervals use the original mix.
