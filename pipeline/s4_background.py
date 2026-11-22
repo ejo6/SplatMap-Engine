@@ -60,6 +60,12 @@ def ssim_map(a, b, window=11, sigma=1.5):
     return ((2 * mu_a * mu_b + c1) * (2 * s_ab + c2)) / ((mu_a**2 + mu_b**2 + c1) * (s_a + s_b + c2))
 
 
+def needle_log_ratio(log_scales):
+    """log(longest / middle axis). Flat discs (thin third axis) are fine on surfaces; needles streak off the path."""
+    s = log_scales.sort(1).values
+    return s[:, 2] - s[:, 1]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--work", required=True, type=Path, help="work/<youtubeId>")
@@ -70,6 +76,8 @@ def main():
     ap.add_argument("--depth-weight", type=float, default=0.1)
     ap.add_argument("--max-dist", type=float, default=80, help="drop init points farther than this from their camera (m)")
     ap.add_argument("--hole-weight", type=float, default=0.2, help="loss weight of LaMa-filled hole pixels (S4a)")
+    ap.add_argument("--max-needle", type=float, default=5, help="longest/middle splat axis ratio allowed before the penalty")
+    ap.add_argument("--needle-weight", type=float, default=0.1)
     ap.add_argument("--force", action="store_true")
     args = ap.parse_args()
 
@@ -187,6 +195,8 @@ def main():
         if valid.any():
             loss = loss + args.depth_weight * ((dr[valid] - dgt[valid]).abs() / dgt[valid]).mean()
         loss = loss + 0.01 * torch.sigmoid(params["opacities"]).mean() + 0.01 * torch.exp(params["scales"]).mean()
+        # KAN-81: needle splats look right from the filmed views but streak off the path. Penalize log(longest/middle) past the cap.
+        loss = loss + args.needle_weight * F.relu(needle_log_ratio(params["scales"]) - math.log(args.max_needle)).mean()
         loss.backward()
         for o in opts.values():
             o.step()
@@ -208,7 +218,8 @@ def main():
         export_splats(m[inside], params["scales"][inside], params["quats"][inside], params["opacities"][inside],
                       params["sh0"][inside], params["shN"][inside], format="ply", save_to=str(out / "world.ply"))
     stats = {"steps": args.steps, "seconds": round(time.time() - t0), "splats": int(inside.sum()),
-             "psnr": round(float(np.mean(psnrs)), 2) if psnrs else None, "box": [box[0].tolist(), box[1].tolist()]}
+             "psnr": round(float(np.mean(psnrs)), 2) if psnrs else None, "box": [box[0].tolist(), box[1].tolist()],
+             "over_needle": round(float((needle_log_ratio(params["scales"][inside]) > math.log(args.max_needle)).float().mean()), 4)}
     (out / "train.json").write_text(json.dumps(stats, indent=1))
     print(f"S4: {stats}", file=sys.stderr)
     progress(100, 0)

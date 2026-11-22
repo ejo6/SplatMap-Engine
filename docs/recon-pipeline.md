@@ -68,7 +68,7 @@ Stages S3–S5 and S9a from PRD §7.2. Each reads and writes `work/<youtubeId>/<
 ## S4 background splat: `pipeline/s4_background.py` (E-04)
 
 - **Env:** `recon`. gsplat JIT-compiles on first use, so export the CUDA vars from `gpu-setup.md` first (Ninja comes from the env's `bin`).
-- **Run:** `python pipeline/s4_background.py --work work/<id> [--steps 30000] [--cap 1500000] [--init 300000] [--sh-degree 1] [--depth-weight 0.1] [--force]`, or `run.py --stages S4`. It skips if `S4/world.ply` exists.
+- **Run:** `python pipeline/s4_background.py --work work/<id> [--steps 30000] [--cap 1500000] [--init 300000] [--sh-degree 1] [--depth-weight 0.1] [--max-needle 5] [--needle-weight 0.1] [--force]`, or `run.py --stages S4`. It skips if `S4/world.ply` exists.
 - **Inputs:**
   - `S0/frames`.
   - `S3/cameras.json` and `S3/depth` (E-03).
@@ -77,11 +77,11 @@ Stages S3–S5 and S9a from PRD §7.2. Each reads and writes `work/<youtubeId>/<
   - Trains directly in our world frame, so world-space normalization is off.
   - Uses keyframes only (5 fps), at full 1280×720.
   - **Movers are excluded from both losses (FR-12):** inside the union mask, the rendered RGB is replaced by the target, so those pixels give no error and no gradient. DA3 depth is zeroed there.
-  - Losses: 0.8·L1 + 0.2·(1−SSIM) on RGB, plus 0.1 × relative L1 between the rendered expected depth and DA3 depth at DA3 resolution, plus the MCMC opacity and scale regularizers (0.01 each).
+  - Losses: 0.8·L1 + 0.2·(1−SSIM) on RGB, plus 0.1 × relative L1 between the rendered expected depth and DA3 depth at DA3 resolution, plus the MCMC opacity and scale regularizers (0.01 each), plus 0.1 × relu(log(longest/middle axis) − log 5) per splat (KAN-81). Needle splats look right from the filmed views but streak when you walk off the path; flat discs (thin third axis) are left alone. Before this, 47% of the 2PBXchYQdao splats were past 5:1.
   - MCMC densification capped at 1.5M splats (the PRD §10.8 LoD budget). It starts from 300k points back-projected from DA3 depth (beyond 80 m dropped), and SH degree 1.
   - **Random background** each step. With a black background, gaps the splat could see through cost nothing in dark areas, so mist was faked with dark floaters. On the forest clip this removed the large dark blob at the path bend, with alignment PSNR unchanged (27.6 → 27.4). Faint dark patches where sky shows through the canopy remain.
   - Export: splats outside the init points' 0.5–99.5 percentile box (+10% margin) are cropped, then written as a standard 3DGS `S4/world.ply`.
-- **Outputs:** `S4/world.ply` and `S4/train.json` `{steps, seconds, splats, psnr, box}`. `psnr` is on non-mover pixels over the last 500 steps.
+- **Outputs:** `S4/world.ply` and `S4/train.json` `{steps, seconds, splats, psnr, box, over_needle}`. `psnr` is on non-mover pixels over the last 500 steps. `over_needle` is the share of exported splats past `--max-needle`.
 - **Measured on the Tokyo-Walk sample** (61 keyframes, A40):
   - 30k steps in 19.7 min (about 25 steps/s), 1.44M splats, 133 MB ply, PSNR 21.9 (a night scene with wet reflections).
   - Step time doesn't depend on clip length, so a 60 s clip should stay well under 30 min.
