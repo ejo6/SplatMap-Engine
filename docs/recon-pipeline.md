@@ -101,6 +101,23 @@ Stages S3–S5 and S9a from PRD §7.2. Each reads and writes `work/<youtubeId>/<
 - **Fog colour:** mean of the top third of the keyframes. `eyeHeight` is the median camera height.
 - **Also writes:** `S5/walk_debug.png`, a top-down view: green walkable, red blocked, grey seen floor, white camera path.
 - **Copy into a world:** copy the four files to `worlds/<id>/v1/s0/` and set `shots[0].bounds = {walk, colliders}` in the manifest. This step is S9a's job once that exists.
+## S9a package: `pipeline/s9_package.py` (E-08)
+
+- **Env:** `recon`, CPU only. Spark `build-lod` comes from `$BUILD_LOD`, default `/workspace/src/spark/rust/target/release/build-lod`.
+- **Run:** `python pipeline/s9_package.py --work work/<id> [--worlds-root worlds] [--creator NAME] [--license CC-BY] [--force]`, or `run.py --stages S9a`. It skips if the manifest exists.
+- **Writes `<worlds-root>/<id>/v1/`** in the PRD §8.2 layout:
+  - `world.rad` and `world.spz`, from two `build-lod --quality` runs on `S4/world.ply`: one with `--rad`, one with `--spz`. Given both flags, build-lod writes only the last one, and stale outputs are deleted first.
+  - The video, thumbs and cameras.
+  - S5 bounds, if S5 ran: sets `bounds` and `qa.fogRadius`.
+  - The S8 people layer, if S8 ran: sets `peopleLayer`.
+  - Each `S6/people/p*/` folder (person.json, motion.bin, plus any avatar files S7 puts there): fills `shots[0].people`.
+- **Manifest:**
+  - Title and scene card come from `S1/director.json`, falling back to the ingest title.
+  - `credit.url` is set only for 11-character YouTube IDs.
+  - `qa.verdict` is `unchecked` until S9b.
+  - Only the selected shot is packaged (`s0`); E-10 adds more shots.
+- **Size:** it warns above 100 MB (NFR-05). IMG_6713 (33 s, 1.4M splats, one person) is 92 MB with an 82 s build: rad 42 MB, spz 31 MB, video 16 MB. The viewer loads only one of rad or spz, and `world.spz` is git-ignored under `worlds/`.
+- **Upload:** not done here. Copy the folder into the repo's `worlds/` for the local demo; the K-08 worker uploads it to the CDN.
 
 ## Alignment check and QA renders: `pipeline/tools/align_check.py` (E-05, G2 gate)
 
