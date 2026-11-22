@@ -160,6 +160,10 @@ async function loadWorld(manifest: Manifest, base: string) {
   const overlay = new VideoOverlay(video, cameras);
   scene.add(overlay.mesh);
 
+  // SH-11: ghost camera path, walk mode only (PRD FR-30)
+  const ghostPath = new GhostPath(cameras);
+  scene.add(ghostPath.group);
+
   // A-09/A-10: people layer + avatars (PRD §10.5); empty if the shot has neither.
   const people = await loadPeople(base, shot, video, manifest.video.fps, cameras);
   scene.add(people.group);
@@ -177,6 +181,7 @@ async function loadWorld(manifest: Manifest, base: string) {
     recordedPosition.copy(pose.position);
     overlay.setFrame(pose);
     people.setFrame(state.frame);
+    ghostPath.setFrame(state.frame);
     outOfShot = isUnreconstructed(state.t, unreconstructed);
     outOfShotFx.setActive(outOfShot);
   });
