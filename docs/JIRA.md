@@ -476,6 +476,7 @@ Gates are tracked as labels. A gate passes when every ticket carrying its label 
   - [ ] There's no jitter along the edge.
 
 #### SH-08 · Fog rendering and F toggle
+- **Superseded by KAN-84:** fog is always off; the fog volume and F toggle were removed.
 - **Owner:** Sharib · **P0** · Size L · Labels: `area-viewer` · Blocked by: SH-01 · Soft deps: E-06 · PRD §10.4, FR-21
 - Per-splat coverage fade through Spark's splat-processing hook, plus a half-resolution height-and-coverage fog pass and the SDF distance term. Fog is local only, never a full-screen darken. F toggles it.
 - **Acceptance:**

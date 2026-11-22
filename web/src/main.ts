@@ -9,7 +9,6 @@ import { createTransportUI, type ThumbsSprite } from './transport';
 import { ScrubController } from './scrub';
 import { loadPeople } from './people';
 import type { WalkSdfGrid } from './walk-bounds';
-import { bindFogToggle, FogVolume } from './fog';
 import { isUnreconstructed, OutOfShotFx, type UnreconstructedRange } from './out-of-shot';
 import { SpatialSoundtrack, startSpatialSoundtrack } from './spatial-audio';
 import { GhostPath } from './ghost-path';
@@ -153,11 +152,8 @@ async function loadWorld(manifest: Manifest, base: string, youtubeId: string) {
   const bounds: WalkBoundsResult = walk && shot.bounds?.walk ? await loadWalkBounds(base, shot.bounds.walk, walk, shot.bounds.colliders) : {};
   const rig = new CameraRig(renderer.domElement, innerWidth / innerHeight, cameras, walk?.eyeHeight ?? DEFAULT_EYE_HEIGHT, bounds);
 
-  // SH-08: fog rendering + F toggle (PRD §10.4, FR-21)
+  // Fog is always off (KAN-84); its colour still tints the out-of-shot panel.
   const fogColor = new THREE.Color().fromArray(walk?.fog?.color ?? DEFAULT_FOG_COLOR);
-  const fog = new FogVolume(bounds.sdf, fogColor);
-  scene.add(fog.group);
-  bindFogToggle(fog);
 
   addEventListener('resize', () => {
     rig.camera.aspect = innerWidth / innerHeight;

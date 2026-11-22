@@ -18,7 +18,6 @@ const CONTROLS: [string, string][] = [
   ['← / →', '−5 s / +5 s'],
   ['C', 'Rejoin the camera where it is now'],
   ['R', 'Restart from the beginning'],
-  ['F', 'Fog on / off'],
   ['Esc', 'Release the mouse'],
 ];
 
