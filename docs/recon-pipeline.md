@@ -78,7 +78,7 @@ Stages S3–S5 and S9a from PRD §7.2. Each reads and writes `work/<youtubeId>/<
 - **Env:** `recon`, CPU only. Spark `build-lod` comes from `$BUILD_LOD`, default `/workspace/src/spark/rust/target/release/build-lod`.
 - **Run:** `python pipeline/s9_package.py --work work/<id> [--worlds-root worlds] [--creator NAME] [--license CC-BY] [--force]`, or `run.py --stages S9a`. It skips if the manifest exists.
 - **Writes `<worlds-root>/<id>/v1/`** in the PRD §8.2 layout:
-  - `world.rad` and `world.spz`, from `build-lod --quality --rad --spz S4/world.ply`.
+  - `world.rad` and `world.spz`, from two `build-lod --quality` runs on `S4/world.ply`: one with `--rad`, one with `--spz`. Given both flags, build-lod writes only the last one, and stale outputs are deleted first.
   - The video, thumbs and cameras.
   - S5 bounds, if S5 ran: sets `bounds` and `qa.fogRadius`.
   - The S8 people layer, if S8 ran: sets `peopleLayer`.

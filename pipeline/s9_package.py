@@ -48,11 +48,14 @@ def main():
     s0.mkdir(parents=True, exist_ok=True)
     progress(0)
 
-    # Splat: Spark LoD .rad (streamed) plus an .spz fallback, both written next to the ply.
+    # Splat: Spark LoD .rad (streamed) plus an .spz fallback, written next to the ply. build-lod writes one
+    # format per run (with --rad --spz only the last one), and stale outputs from an older ply must not be reused.
     ply = w / "S4/world.ply"
-    r = subprocess.run([BUILD_LOD, "--quality", "--rad", "--spz", str(ply)], capture_output=True, text=True)
-    if r.returncode:
-        fail(f"build-lod failed: {r.stderr[-500:]}")
+    for fmt in ("rad", "spz"):
+        ply.with_name(f"world-lod.{fmt}").unlink(missing_ok=True)
+        r = subprocess.run([BUILD_LOD, "--quality", f"--{fmt}", str(ply)], capture_output=True, text=True)
+        if r.returncode:
+            fail(f"build-lod --{fmt} failed: {r.stderr[-500:]}")
     shutil.copy(ply.with_name("world-lod.rad"), s0 / "world.rad")
     shutil.copy(ply.with_name("world-lod.spz"), s0 / "world.spz")
     progress(70)
