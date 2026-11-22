@@ -11,12 +11,18 @@ repo history for good, so re-commit a world only when it really changed.
 
 | ID | Title | Source | Size | Notes |
 |---|---|---|---|---|
-| `9lY7iZl1KbI` | Misty forest path | YouTube, 0–30 s | 62 MB | No people. G2 alignment PSNR 27.6 / SSIM 0.89 (KAN-30) |
+| `9lY7iZl1KbI` | Misty forest path | YouTube | 62 MB | No people. G2 alignment PSNR 27.6 / SSIM 0.89 (KAN-30) |
+| `2KanGOaQjZI` | Snowy summit climb | YouTube | 62 MB | No people |
+| `2PBXchYQdao` | Modern living room | YouTube | 93 MB | No people |
+| `CEl6P5wo6ro` | Dark hallway | YouTube | 130 MB | No people |
+| `CThxyXWWqA0` | Hilltop overlook | YouTube | 157 MB | 10 people, holo layer |
 
-`9lY7iZl1KbI` has a `thumb.jpg` (cropped from `thumbs.json`'s first sprite tile) referenced by
-`web/public/gallery.json` for the landing page gallery (FR-04, KAN-83). `worlds/test/` (gate G1,
-see `docs/world-format.md`) is a git-ignored local fixture, so it's left out of the committed
-gallery — it would 404 on anyone else's clone.
+Each committed world has a `thumb.jpg` (cropped from `thumbs.json`'s first sprite tile) referenced
+by `web/public/gallery.json` for the landing page gallery (FR-04, KAN-83, KAN-89). Left out of
+`gallery.json`: `worlds/2PBXchYQdao-atlas/` (an alternate build of `2PBXchYQdao`'s same youtubeId —
+the viewer resolves `/w/<id>` by youtubeId, so this folder isn't reachable), the `worlds/IMG_*/`
+folders (local uploads, not YouTube videos — no link to route back to), and `worlds/test/` (gate
+G1, see `docs/world-format.md`), a git-ignored local fixture that would 404 on anyone else's clone.
 
 **Landing and /unavailable (KAN-88).** No new videos are processed for the demo. The landing form opens `/w/<id>`
 only if `<id>` is in `gallery.json`; any other valid link goes to `/unavailable` ("The GPU cluster is unavailable").
