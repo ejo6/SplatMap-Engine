@@ -73,6 +73,24 @@ Stages S3–S5 and S9a from PRD §7.2. Each reads and writes `work/<youtubeId>/<
   - Renders at the source poses line up with the frames.
   - The main walker isn't baked in. Where she blocked the background for the whole clip there's a dark unseen smear; that's the hole E-07 (LaMa) fills.
 
+## S5 bounds: `pipeline/s5_bounds.py` (E-06)
+
+- **Env:** `recon`, CPU only. About 25 s on IMG_6714 (224 keyframes).
+- **Run:** `python pipeline/s5_bounds.py --work work/<id> [--radius 4] [--cell 0.15] [--sdf-cell 0.1] [--max-depth 15] [--force]`, or `run.py --stages S5`. It skips if `S5/walk.json` exists.
+- **Inputs:** `S3/cameras.json`, `S3/depth`, `S0/frames`, `S4/world.ply`, and `S2/masks/union` (movers are not carved).
+- **Voxel carving:**
+  - Grid over the solid-splat extent (1–99th percentile) plus the camera path ± radius, at 15 cm. The cell grows if the grid would exceed 8M voxels.
+  - From each keyframe, rays (every 4th depth pixel, up to 15 m) add a *hit* at the surface voxel and a *pass* to every voxel in front of it.
+  - Rays also sum their directions per voxel to give the angular spread.
+- **coverage.bin:** `min(1, views/8) × (0.5 + 0.5·min(1, spread/0.3))` × 255. Voxels with 3 or more solid splats get at least 102.
+- **Walkable:** floor cells (|y| < 0.3 m) that were seen, with no occupied voxel from 0.3 m to eye height, within `--radius` of the camera path, and connected to the path.
+  - Occupied means 2 or more hits and hits > 0.3 × passes.
+  - `walk_sdf.bin` is the signed distance in metres (negative = walkable).
+- **colliders.glb:** one box per obstacle column within 1 m of the walkable area, from the floor to its top occupied voxel. IMG_6714 has 1,232 boxes (296 KB).
+- **Fog colour:** mean of the top third of the keyframes. `eyeHeight` is the median camera height.
+- **Also writes:** `S5/walk_debug.png`, a top-down view: green walkable, red blocked, grey seen floor, white camera path.
+- **Copy into a world:** copy the four files to `worlds/<id>/v1/s0/` and set `shots[0].bounds = {walk, colliders}` in the manifest. This step is S9a's job once that exists.
+
 ## Alignment check and QA renders: `pipeline/tools/align_check.py` (E-05, G2 gate)
 
 - **Run:** `python pipeline/tools/align_check.py --work work/<id> [--n 10]` in the `recon` env (export the CUDA vars first). It takes about 15 s.
