@@ -1,28 +1,36 @@
 # Demo worlds
 
-Packaged worlds live in `worlds/<id>/v1/` and **are committed**, so a fresh clone can open them:
-`cd web && npm i && npm run dev`, then `http://localhost:5173/w/<id>`. `web/public/worlds` is a
-symlink to the repo-root `worlds/`.
+Packaged worlds live in `worlds/<id>/v1/`. Only `9lY7iZl1KbI` is committed. Every other world folder is
+git-ignored (`/worlds/*` in `.gitignore`, KAN-89) because each one adds 40–220 MB to the repo history for good.
+Share them outside git: copy the folder from the GPU box or a teammate into `worlds/`. Then
+`cd web && npm i && npm run dev` and open `http://localhost:5173/w/<id>`. `web/public/worlds` is a symlink to
+the repo-root `worlds/`.
 
-Commit only what the viewer loads: `manifest.json`, `video.mp4`, `thumbs.jpg/json`, `s0/cameras.json`,
-`s0/world.rad`, plus the S5 bounds and people files when present. `pipeline/s9_package.py` builds the folder; `world.spz` is git-ignored. Sources, frames and the training `world.ply` stay
-in `work/` (git-ignored; `*.ply` is also ignored under `worlds/`). Each world adds about 60 MB to the
-repo history for good, so re-commit a world only when it really changed.
+A world folder needs only what the viewer loads: `manifest.json`, `video.mp4`, `thumbs.jpg/json`,
+`s0/cameras.json` and `s0/world.rad`, plus the S5 bounds and people files when present.
+`pipeline/s9_package.py` builds the folder. Sources, frames and the training `world.ply` stay in `work/`.
 
-| ID | Title | Source | Size | Notes |
-|---|---|---|---|---|
-| `9lY7iZl1KbI` | Misty forest path | YouTube, 0–30 s | 62 MB | No people. G2 alignment PSNR 27.6 / SSIM 0.89 (KAN-30) |
+| ID | Title | In git | Notes |
+|---|---|---|---|
+| `9lY7iZl1KbI` | Misty forest path | yes | No people. G2 alignment PSNR 27.6 / SSIM 0.89 (KAN-30) |
+| `2KanGOaQjZI` | Snowy summit climb | no | No people |
+| `2PBXchYQdao` | Modern living room | no | No people |
+| `CEl6P5wo6ro` | Dark hallway | no | No people |
+| `CThxyXWWqA0` | Hilltop overlook | no | 10 people, holo layer |
 
-`9lY7iZl1KbI` has a `thumb.jpg` (cropped from `thumbs.json`'s first sprite tile) referenced by
-`web/public/gallery.json` for the landing page gallery (FR-04, KAN-83). `worlds/test/` (gate G1,
-see `docs/world-format.md`) is a git-ignored local fixture, so it's left out of the committed
-gallery — it would 404 on anyone else's clone.
+These five are in `web/public/gallery.json`, the source for the landing and `/unavailable` carousels.
+A world that isn't on disk still shows in the carousel with its YouTube cover, but its `/w/<id>` link
+won't load. Kept out of the gallery:
+- `2PBXchYQdao-atlas`: a second build of the same youtubeId. The viewer resolves `/w/<id>` by youtubeId, so this folder can't be reached.
+- `IMG_*`: local uploads, not YouTube videos.
+- `test`: the G1 fixture (`docs/world-format.md`).
+- `bedroom`: a people-layer test clip.
 
 **Landing and /unavailable (KAN-88).** No new videos are processed for the demo. The landing form opens `/w/<id>`
 only if `<id>` is in `gallery.json`; any other valid link goes to `/unavailable` ("The GPU cluster is unavailable").
 Both pages show `gallery.json` as a rotating carousel (`web/src/carousel.ts`). Each slide uses YouTube's 1280×720
-`maxresdefault.jpg` and falls back to the world's `thumb.jpg`. To add a world to both, commit it under `worlds/`
-and add one entry to `gallery.json`.
+`maxresdefault.jpg` and falls back to the world's `thumb.jpg`. To add a world to both, put its folder in `worlds/`
+(not committed) and add one entry to `gallery.json`.
 
 ### Checking spatial audio in desktop Chrome
 
