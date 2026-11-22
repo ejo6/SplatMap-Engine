@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { avatarWeight, smoothstep } from '../src/people/blend.ts';
+import { avatarWeight, showAvatars, smoothstep } from '../src/people/blend.ts';
 
 test('people layer only near the original camera, avatars only far off-axis', () => {
   assert.equal(avatarWeight(0, 0), 0);
@@ -24,4 +24,11 @@ test('distance band fades instead of popping at 0.5 m', () => {
   assert.ok(avatarWeight(0, 0.45) > 0 && avatarWeight(0, 0.45) < 1);
   assert.equal(avatarWeight(0, 0.5), 1);
   assert.equal(smoothstep(0, 1, 0.5), 0.5);
+});
+
+test('swap has hysteresis: on past mid-band, off only back in the real-pixel zone (KAN-85)', () => {
+  assert.equal(showAvatars(false, 0.3), false);
+  assert.equal(showAvatars(false, 0.5), true);
+  assert.equal(showAvatars(true, 0.3), true); // still in the band: no flicker back
+  assert.equal(showAvatars(true, 0), false);
 });

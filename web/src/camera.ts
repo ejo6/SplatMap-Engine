@@ -24,6 +24,7 @@ const WALK_SPEED = 1.4; // m/s, PRD §10.2
 const RUN_SPEED = 3;
 const RETURN_MS = 400;
 const SCRUB_SMOOTH_TAU = 0.12; // seconds; PRD §10.3 says tween 300-500ms, this settles in about that window
+const EYE_EASE_TAU = 0.15; // seconds; KAN-85 eases from the recorded height to eye height (~0.4 s) instead of snapping
 const LOOK_SPEED = 0.0025; // radians per pixel of mouse movement
 const PITCH_LIMIT = Math.PI / 2 - 0.01;
 const WASD_CODES = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD']);
@@ -137,7 +138,7 @@ export class CameraRig {
   /** Any movement input leaves ride-along (FR-18), seeding the walk pose from where the camera is now. */
   private enterWalk() {
     if (this.mode === 'walk' || this.mode === 'scrubbing') return;
-    this.walkPos.copy(this.camera.position).setY(this.eyeHeight);
+    this.walkPos.copy(this.camera.position); // y eases to eyeHeight in updateWalk (KAN-85), so leaving the video doesn't lurch
     const euler = new THREE.Euler().setFromQuaternion(this.camera.quaternion, 'YXZ');
     this.yaw = euler.y;
     this.pitch = euler.x;
@@ -191,8 +192,9 @@ export class CameraRig {
       const bounded = resolveWalkMove(this.bounds.sdf, { x: this.walkPos.x, z: this.walkPos.z }, { x: delta.x, z: delta.z }, dtSeconds);
       delta.set(bounded.x, 0, bounded.z);
       const clamped = this.bounds.colliders?.length ? clampMoveForColliders(this.bounds.colliders, this.walkPos, delta) : delta;
-      this.walkPos.add(clamped); // eye height is fixed on entering walk mode (PRD §10.4), so y never moves here
+      this.walkPos.add(clamped); // horizontal only: y is the eye-height ease below (PRD §10.4)
     }
+    this.walkPos.y += (this.eyeHeight - this.walkPos.y) * (1 - Math.exp(-dtSeconds / EYE_EASE_TAU));
 
     this.camera.position.copy(this.walkPos);
     this.camera.quaternion.setFromEuler(new THREE.Euler(this.pitch, this.yaw, 0, 'YXZ'));
