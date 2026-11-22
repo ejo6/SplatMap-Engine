@@ -56,7 +56,7 @@ export class GhostPath {
   private readonly done: THREE.Mesh;
   private readonly doneSegments: number;
   private readonly cumulative: number[];
-  private style: PathStyle = 'air';
+  private style: PathStyle = 'off';
   private frame = 0;
 
   constructor(cameras: CamerasFile) {
@@ -73,7 +73,6 @@ export class GhostPath {
     this.done = done.mesh;
     this.doneSegments = done.tubularSegments;
     this.floor.add(tube(flat, FLOOR_RADIUS, PATH_OPACITY).mesh, this.done);
-    this.floor.visible = false;
 
     const markerMaterial = new THREE.MeshBasicMaterial({ color: MARKER_COLOR, transparent: true, opacity: MARKER_OPACITY, depthWrite: false, toneMapped: false });
     this.marker = new THREE.Mesh(new THREE.SphereGeometry(MARKER_RADIUS, 12, 8), markerMaterial);
@@ -82,6 +81,7 @@ export class GhostPath {
 
     this.group.add(this.floor); // after the marker: children[0] tube, [1] marker, [2] floor
     this.group.visible = false;
+    this.setStyle('off'); // off until the viewer turns it on from the HUD
   }
 
   /** Drives the marker to the original camera's position at this shot frame (clock bus, PRD §10.1), and in the

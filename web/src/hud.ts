@@ -76,7 +76,7 @@ export function createHud(opts: {
   const pathButtons = styles.map(([style, label]) => {
     const b = el('button', 'hud-button', label);
     b.type = 'button';
-    b.setAttribute('aria-pressed', String(style === 'air'));
+    b.setAttribute('aria-pressed', String(style === 'off'));
     b.addEventListener('click', () => {
       for (const other of pathButtons) other.setAttribute('aria-pressed', String(other === b));
       opts.onPathStyle(style);
