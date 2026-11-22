@@ -20,29 +20,29 @@ A world folder needs only what the viewer loads: `manifest.json`, `video.mp4`, `
 | `SJZnVmv_8Ns` | Snowy ridge traverse | no | 1 person |
 | `evADsZV13gc` | Cathedral nave | no | 6 people |
 | `h357f076SRw` | Mossy forest trail | no | 1 person |
-| `IMG_6713000` | Study room 360 | no | 1 person |
-| `IMG_6714000` | Study room walkaround | no | No people |
-| `IMG_6716000` | Lounge chair spin | no | 3 people |
-| `IMG_6719000` | Meeting room corner | no | 5 people |
-| `IMG_6722000` | Fourth floor hallway | no | 5 people |
-| `IMG_6723000` | Hallway hangout | no | 17 people |
+| `IMG_6713` | Study room 360 | no | 1 person |
+| `IMG_6714` | Study room walkaround | no | No people |
+| `IMG_6716` | Lounge chair spin | no | 3 people |
+| `IMG_6719` | Meeting room corner | no | 5 people |
+| `IMG_6722` | Fourth floor hallway | no | 5 people |
+| `IMG_6723` | Hallway hangout | no | 17 people |
 
-These fifteen are in `web/public/gallery.json`, the source for the landing and `/unavailable` carousels.
-`IMG_*` ids are local iPhone uploads (not YouTube videos), kept at their 11-character folder name so they pass
-the carousel's youtubeId-shaped filter; their `/w/<id>` link still works since the viewer resolves `/w/<id>`
-straight to `worlds/<id>/v1/` regardless of whether `<id>` is a real YouTube id.
+**What the carousel shows (KAN-93).** The landing and `/unavailable` carousels list the world folders that are
+actually on *your* machine: every `worlds/<folder>/v1/manifest.json`. This list comes from `/worlds-index.json`, which
+`web/vite.config.ts` serves in dev (re-read on every request, so a copied-in world appears on refresh) and writes into
+the build. Each card links to `/w/<folder>`, which the viewer resolves to `worlds/<folder>/v1/`. Any folder name
+works, including `IMG_*` uploads and renamed copies such as `IMG_6719000`.
 
-A world that isn't on disk still shows in the carousel with its YouTube cover, but its `/w/<id>` link
-won't load. Kept out of the gallery:
-- `2PBXchYQdao-atlas`: a second build of the same youtubeId, at 17 characters it fails the carousel's id-length filter anyway, and the viewer would just reload the same `2PBXchYQdao` content.
-- `test`: the G1 fixture (`docs/world-format.md`).
-- `bedroom`: a people-layer test clip.
+- **Cover:** for an 11-character YouTube id, YouTube's 1280×720 `maxresdefault.jpg`; otherwise (or when YouTube has
+  no maxres cover) a frame at 0.5 s of the world's own `video.mp4`. No `thumb.jpg` is needed.
+- **No title or credit on the cards:** we don't reliably know each video's name, so a card is just its cover and
+  link. (`web/public/gallery.json`, the old hand-curated list, was removed.)
+- **Left out:** `worlds/test/` (the G1 fixture), folders without `v1/manifest.json`, and an alternate build such as
+  `2PBXchYQdao-atlas` when the folder named for its `youtubeId` also exists.
 
 **Landing and /unavailable (KAN-88).** No new videos are processed for the demo. The landing form opens `/w/<id>`
-only if `<id>` is in `gallery.json`; any other valid link goes to `/unavailable` ("The GPU cluster is unavailable").
-Both pages show `gallery.json` as a rotating carousel (`web/src/carousel.ts`). Each slide uses YouTube's 1280×720
-`maxresdefault.jpg` and falls back to the world's `thumb.jpg`. To add a world to both, put its folder in `worlds/`
-(not committed) and add one entry to `gallery.json`.
+only if `<id>` is one of the worlds on disk; any other valid link goes to `/unavailable` ("The GPU cluster is
+unavailable"). To add a world, copy its folder into `worlds/` (not committed).
 
 ### Checking spatial audio in desktop Chrome
 

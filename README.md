@@ -136,7 +136,7 @@ The viewer (`web/`) is a Vite + TypeScript app using [three.js](https://threejs.
 
 `/` is a Moraine Lake landing page. It has a field for a YouTube link, a rotating carousel of the built worlds, a short "how it works", and setup steps for the extension.
 
-The demo doesn't process new videos live. Pasting a link to a world we've already built opens it. Any other valid link goes to `/unavailable`, which explains that the GPU cluster is unavailable and offers the built worlds instead. The carousel lists the worlds in [`web/public/gallery.json`](web/public/gallery.json) and shows each one with its 1280×720 YouTube cover.
+The demo doesn't process new videos live. Pasting a link to a world we've already built opens it. Any other valid link goes to `/unavailable`, which explains that the GPU cluster is unavailable and offers the built worlds instead. The carousel lists every world folder on your machine. Each one shows its 1280×720 YouTube cover, or a frame of its own video when it isn't a YouTube video.
 
 ## The Chrome extension
 
@@ -161,7 +161,7 @@ To get another world, copy its folder (for example `worlds/CThxyXWWqA0/`) from t
 | Dark hallway | `CEl6P5wo6ro` | no |
 | Hilltop overlook (10 people) | `CThxyXWWqA0` | no |
 
-A world shows up in the carousel once it has an entry in `web/public/gallery.json`. Details are in [docs/demo-worlds.md](docs/demo-worlds.md).
+A world shows up in the carousel as soon as its folder is in `worlds/`. Details are in [docs/demo-worlds.md](docs/demo-worlds.md).
 
 ## Building a new world (GPU pipeline)
 
@@ -177,7 +177,7 @@ Building a world needs an NVIDIA GPU with about 48 GB of memory. We used a RunPo
    ```
 
    Intermediate output goes to `work/<id>/` (git-ignored). The finished package goes to `worlds/<id>/v1/`.
-5. **Copy the world** to your laptop's `worlds/` and add it to `web/public/gallery.json`.
+5. **Copy the world** to your laptop's `worlds/`. It appears in the carousel on refresh.
 
 The step-by-step guide, from a YouTube link to a world you can walk in, is [docs/youtube-to-world.md](docs/youtube-to-world.md). Each stage's inputs, outputs and skip logic are in [docs/pipeline-runner.md](docs/pipeline-runner.md).
 
@@ -188,7 +188,6 @@ The step-by-step guide, from a YouTube link to a world you can walk in, is [docs
 | `extension/` | Chrome MV3 extension: the Step inside button (`content.js`, `content.css`, `config.js`) |
 | `web/` | Landing page and viewer (Vite + TypeScript + three.js + Spark) |
 | `web/src/people/` | Avatars, the real-pixel people layer and the blend between them |
-| `web/public/gallery.json` | The worlds shown in the landing carousel |
 | `pipeline/` | Stage scripts `s0_ingest.py` … `s9_package.py`, the runner `run.py`, conda envs in `envs/`, tests in `tests/` |
 | `config/` | `gemini.yaml`: the pinned Gemini model and prompts |
 | `server/` | Placeholder for the job API and GPU worker (planned, not built) |
