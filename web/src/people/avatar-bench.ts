@@ -95,7 +95,7 @@ async function lbsAvatar(hue: number) {
     },
   });
   await ext.initialized;
-  ext.updateTextures(); // Spark 2.4's construct path never uploads the arrays; without this nothing draws
+  (ext as unknown as { updateTextures(): void }).updateTextures(); // private in the types; Spark 2.4's construct path never uploads the arrays; without this nothing draws
   const mesh = new SplatMesh({ extSplats: ext, covSplats: true });
   await mesh.initialized;
   const skin = new SplatSkinning({ mesh, numBones: JOINTS.length, mode: SplatSkinningMode.LINEAR_BLEND });
