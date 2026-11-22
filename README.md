@@ -30,9 +30,7 @@ The name comes from **Gaussian splatting**, the 3D technique the worlds are buil
 - [Building a new world (GPU pipeline)](#building-a-new-world-gpu-pipeline)
 - [Repo layout](#repo-layout)
 - [Tech stack](#tech-stack)
-- [Development](#development)
 - [Docs](#docs)
-- [Team](#team)
 - [Licences and credits](#licences-and-credits)
 
 ## Try it
@@ -209,20 +207,7 @@ The step-by-step guide, from a YouTube link to a world you can walk in, is [docs
 | Segmentation | SAM 3 |
 | 3D reconstruction | Depth Anything 3, gsplat, LaMa |
 | People | GVHMR, SMPL-X, LHM, Video Depth Anything |
-| Compute | RunPod A40 (48 GB) |
-
-## Development
-
-```bash
-cd web
-npm test          # viewer unit tests (node --test)
-npx tsc --noEmit  # type check
-npm run build     # production build in web/dist/
-```
-
-Pipeline tests are in `pipeline/tests/` and run with `pytest` inside the matching conda env.
-
-Team workflow: tasks are tracked in Jira (project `KAN`). Use one branch per ticket, named with the key (for example `KAN-88-unavailable-carousel`), and merge through a PR to `main`. Never commit `.env`, keys, model weights, SMPL/SMPL-X files or world folders. More in [docs/JIRA.md](docs/JIRA.md).
+| Compute | RunPod A40 (48 GB), Vultr |
 
 ## Docs
 
@@ -239,17 +224,8 @@ Team workflow: tasks are tracked in Jira (project `KAN`). Use one branch per tic
 | [docs/gpu-setup.md](docs/gpu-setup.md), [docs/gpu-ledger.md](docs/gpu-ledger.md) | GPU box setup and spend |
 | [docs/extension-setup.md](docs/extension-setup.md) | Installing and configuring the extension |
 
-## Team
-
-| Person | Owns |
-|---|---|
-| **Eric** | Reconstruction and the GPU box: pipeline runner, cameras, splat training, bounds, packaging, baking the worlds |
-| **Adam** | People end to end: masks, body tracking, avatars, the people layer and their rendering in the viewer |
-| **Sharib** | The viewer: loading, clock, camera modes, scrubbing, boundary, HUD, performance |
-| **Kevin** | Ingest and Gemini, the extension, the landing page, hosting and clip rights |
-
 ## Licences and credits
 
 This is a non-commercial hackathon demo. Some of the models it uses are licensed for research only: Depth Anything 3 Large/Giant weights and Pi3X (CC BY-NC), and SMPL/SMPL-X (non-commercial). SAM 3 is under Meta's own licence. gsplat, Spark, LHM's code and yt-dlp are permissively licensed. Details are in [PRD §17](docs/prd.md#17-licences).
 
-Demo videos are our own, CC-licensed or used with the creator's permission, and every world credits its creator on screen. The landing page photo is *Moraine Lake at 6AM* by [Redd Francisco](https://unsplash.com/@reddfrancisco) on Unsplash.
+The landing page photo is *Moraine Lake at 6AM* by [Redd Francisco](https://unsplash.com/@reddfrancisco) on Unsplash.
