@@ -50,6 +50,17 @@ Stages S3–S5 and S9a from PRD §7.2. Each reads and writes `work/<youtubeId>/<
   - The camera is 0.76 m above the ground. That's a genuine low-angle shot (the horizon is at the subject's waist), so it triggers the warning.
   - The camera backs away 6.3 m in front of the walker, matching the footage.
 
+## S4a holes behind people: `pipeline/s4a_holes.py` (E-07)
+
+- **Env:** `lama` (big-lama via `simple-lama-inpainting`). Runs on CPU if no GPU is visible (`CUDA_VISIBLE_DEVICES=`).
+- **Run:** `python pipeline/s4a_holes.py --work work/<id> [--min-hole 0.002] [--stride 2] [--force]`, or `run.py --stages S4a`. It skips if `S4/holes/holes.json` exists.
+- **Hole test:** a masked pixel is a hole if no other keyframe saw the background behind it.
+  - The background depth behind the mover is guessed by interpolating each depth row across the mask.
+  - Each masked pixel (every 2nd) is projected into every other keyframe. It counts as seen if it lands in the frame, outside that frame's mask, and within 10% of that frame's depth.
+- **Fill:** keyframes with holes over 0.2% of the frame get the whole person (mask grown 7 px) removed by LaMa.
+- **Outputs:** `S4/holes/<stem>.png` (255 = hole, full res), `S4/holes/<stem>.jpg` (LaMa frame), `S4/holes/holes.json` `{frames: {stem: holeFraction}}`.
+- **S4 use:** inside a hole, the target is the LaMa frame and the error is scaled by `--hole-weight` (0.2). The rest of the mask stays excluded. Without `S4/holes/`, S4 behaves as before.
+
 ## S4 background splat: `pipeline/s4_background.py` (E-04)
 
 - **Env:** `recon`. gsplat JIT-compiles on first use, so export the CUDA vars from `gpu-setup.md` first (Ninja comes from the env's `bin`).
@@ -71,7 +82,7 @@ Stages S3–S5 and S9a from PRD §7.2. Each reads and writes `work/<youtubeId>/<
   - 30k steps in 19.7 min (about 25 steps/s), 1.44M splats, 133 MB ply, PSNR 21.9 (a night scene with wet reflections).
   - Step time doesn't depend on clip length, so a 60 s clip should stay well under 30 min.
   - Renders at the source poses line up with the frames.
-  - The main walker isn't baked in. Where she blocked the background for the whole clip there's a dark unseen smear; that's the hole E-07 (LaMa) fills.
+  - The main walker isn't baked in. Where she blocked the background for the whole clip there's a dark unseen smear; that's the hole S4a (E-07, LaMa) fills.
 
 ## S5 bounds: `pipeline/s5_bounds.py` (E-06)
 

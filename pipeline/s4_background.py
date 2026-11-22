@@ -4,8 +4,10 @@ gsplat training on the keyframes with the S3b cameras, directly in our world fra
 Movers (S2 union mask) are excluded from BOTH the RGB and the depth losses (Orbis PR #80): the rendered
 image/depth is replaced by the target inside the mask, so those pixels give no error and no gradient.
 MCMC densification with a fixed splat cap; init from DA3 keyframe depth.
+Holes (E-07): mask pixels no keyframe ever saw (S4a) are supervised with the LaMa-inpainted frame at --hole-weight.
 
-  in : work/<id>/S0/frames/*.jpg, S3/cameras.json, S3/depth/<stem>.npy (E-03), S2/masks/union/<stem>.png (A-01)
+  in : work/<id>/S0/frames/*.jpg, S3/cameras.json, S3/depth/<stem>.npy (E-03), S2/masks/union/<stem>.png (A-01),
+       S4/holes/<stem>.png + .jpg (S4a, optional)
   out: work/<id>/S4/world.ply   standard 3DGS ply, world frame, cropped to the scene box
        work/<id>/S4/train.json  {steps, seconds, splats, psnr (non-mover pixels, last 500 steps)}
 """
@@ -67,6 +69,7 @@ def main():
     ap.add_argument("--sh-degree", type=int, default=1)
     ap.add_argument("--depth-weight", type=float, default=0.1)
     ap.add_argument("--max-dist", type=float, default=80, help="drop init points farther than this from their camera (m)")
+    ap.add_argument("--hole-weight", type=float, default=0.2, help="loss weight of LaMa-filled hole pixels (S4a)")
     ap.add_argument("--force", action="store_true")
     args = ap.parse_args()
 
@@ -99,12 +102,17 @@ def main():
     dev = "cuda"
 
     # Load keyframes: RGB, keep mask (1 = background), DA3 world depth.
-    imgs, keeps, depths, pts, cols = [], [], [], [], []
+    imgs, keeps, holes, depths, pts, cols = [], [], [], [], [], []
     for j, f in enumerate(kf):
         rgb = np.asarray(Image.open(args.work / "S0" / "frames" / f"{stems[f]}.jpg").convert("RGB"))
         keep = np.ones((H, W), bool)
         if (mask_dir / f"{stems[f]}.png").exists():
             keep = np.asarray(Image.open(mask_dir / f"{stems[f]}.png").convert("L")) < 128
+        hole = np.zeros((H, W), bool)
+        if (hole_png := args.work / "S4" / "holes" / f"{stems[f]}.png").exists():  # E-07: LaMa fill as the target there
+            hole = np.asarray(Image.open(hole_png).convert("L")) >= 128
+            rgb = np.where(hole[..., None], np.asarray(Image.open(hole_png.with_suffix(".jpg")).convert("RGB")), rgb)
+        holes.append(torch.from_numpy(hole))
         d = np.load(args.work / "S3" / "depth" / f"{stems[f]}.npy").astype(np.float32)
         dh, dw = d.shape
         keep_d = np.asarray(Image.fromarray(keep).resize((dw, dh), Image.NEAREST))
@@ -127,6 +135,7 @@ def main():
 
     imgs = torch.stack(imgs).to(dev)  # uint8 (N,H,W,3)
     keeps = torch.stack(keeps).to(dev)
+    holes = torch.stack(holes).to(dev)
     depths = torch.stack(depths).to(dev)
     viewmats = torch.from_numpy(np.linalg.inv(c2w_cv)).float().to(dev)
     Kt = torch.from_numpy(K).float().to(dev)[None]
@@ -157,6 +166,7 @@ def main():
         j = int(rng.integers(len(kf)))
         gt = imgs[j].float()[None] / 255
         keep = keeps[j][None, ..., None].float()
+        hole = holes[j][None, ..., None].float()
         render, alpha, info = rasterization(
             params["means"], F.normalize(params["quats"], dim=-1), torch.exp(params["scales"]),
             torch.sigmoid(params["opacities"]), torch.cat([params["sh0"], params["shN"]], 1),
@@ -165,6 +175,8 @@ def main():
             # opaque everywhere the frame has content. With a black background, dark mist got faked by dark floaters.
             backgrounds=torch.rand(1, 3, device=dev))
         rgb = render[..., :3] * keep + gt * (1 - keep)  # movers: no error, no gradient
+        # Holes (inside the mask): w*render + (1-w)*LaMa, so their error and gradient are scaled by hole_weight.
+        rgb = rgb + hole * args.hole_weight * (render[..., :3] - gt)
         l1 = (rgb - gt).abs().mean()
         ssim = ssim_map(rgb.permute(0, 3, 1, 2), gt.permute(0, 3, 1, 2)).mean()
         loss = 0.8 * l1 + 0.2 * (1 - ssim)
