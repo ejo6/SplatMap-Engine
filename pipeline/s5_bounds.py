@@ -148,9 +148,9 @@ def main():
     pi = np.clip(((centers[:, 2] - lo[2]) / args.sdf_cell).astype(int), 0, sh - 1)
     pj = np.clip(((centers[:, 0] - lo[0]) / args.sdf_cell).astype(int), 0, sw - 1)
     path[pi, pj] = True
-    near_path = ndimage.distance_transform_edt(~path) * args.sdf_cell <= args.radius
-    walk = seen_g & ~blocked_g & near_path
-    walk[pi, pj] |= ~blocked_g[pi, pj]  # the recorded path itself stays walkable where it's free
+    path_dist = ndimage.distance_transform_edt(~path) * args.sdf_cell
+    # Floor right around the camera is rarely in frame, but the camera stood there: count it as seen.
+    walk = (seen_g | (path_dist <= 1.5)) & ~blocked_g & (path_dist <= args.radius)
     lab, _ = ndimage.label(walk)  # keep only regions connected to the camera path
     walk &= np.isin(lab, np.unique(lab[pi, pj][lab[pi, pj] > 0]))
     if walk.sum() == 0:
@@ -170,8 +170,8 @@ def main():
         b = trimesh.creation.box(extents=[cell, top, cell])
         b.apply_translation([lo[0] + (xi + 0.5) * cell, top / 2, lo[2] + (zi + 0.5) * cell])
         boxes.append(b)
-    scene = trimesh.Scene(trimesh.util.concatenate(boxes) if boxes else [])
-    (out / "colliders.glb").write_bytes(scene.export(file_type="glb"))
+    if boxes:  # trimesh can't export an empty scene; no file means no colliders
+        (out / "colliders.glb").write_bytes(trimesh.Scene(trimesh.util.concatenate(boxes)).export(file_type="glb"))
 
     fog = [round(float(c), 3) for c in np.mean(fog_cols, 0)]
     (out / "walk.json").write_text(json.dumps({
