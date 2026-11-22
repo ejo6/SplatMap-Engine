@@ -296,12 +296,14 @@ worlds/<youtubeId>/v<pipelineVersion>/
 - **`person.json`:**
   ```
   { id, label,
-    avatar: { kind: "splat-lbs" | "mesh-glb" | "ply-seq", url, skin },
+    avatar: { kind: "splat-lbs", url: "avatar.ply", skin: "skin.bin", splats: N },
     joints: J, motion: { url, frameCount, layout: "J x 3x4 row-major float32 per frame" },
     visible: [[startFrame, endFrame], ...] }
   ```
   - `motion.bin` holds the world-space joint transforms per frame, precomputed in the pipeline so the browser needs no SMPL-X code.
-  - `kind` is finalized by ticket **A-07** (the avatar rendering spike). Update this section when that decision is made.
+  - **`avatar.ply`:** the LHM Gaussians in the person's rest space (shaped SMPL-X T-pose, metres, unscaled; see `restJoints`), standard 3DGS PLY. Splat order matters: it is the index into `skin.bin`.
+  - **`skin.bin`:** Float32, `N × 8` per splat: 4 joint indices (smplx55 order), then their 4 weights (sum 1). The viewer skins with Spark `SplatSkinning` (linear blend), bone `j` = `motion[frame][j]`.
+  - `kind` was decided by **A-07**: `splat-lbs`. LHM outputs Gaussians, so there is no mesh conversion, and 3 avatars × 40k splats cost little next to the world (A40: 316 fps with a 1.5M-splat world). `ply-seq` was rejected on size (about 1.1 GB per person). Spark 2.4 needs `SparkRenderer({ covSplats: true, accumExtSplats: true })` and an `ExtSplats` mesh with `covSplats: true`.
 
 ---
 

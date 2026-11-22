@@ -95,6 +95,7 @@ async function lbsAvatar(hue: number) {
     },
   });
   await ext.initialized;
+  (ext as unknown as { updateTextures(): void }).updateTextures(); // private in the types; Spark 2.4's construct path never uploads the arrays; without this nothing draws
   const mesh = new SplatMesh({ extSplats: ext, covSplats: true });
   await mesh.initialized;
   const skin = new SplatSkinning({ mesh, numBones: JOINTS.length, mode: SplatSkinningMode.LINEAR_BLEND });
@@ -145,8 +146,10 @@ scene.add(new THREE.HemisphereLight(0xffffff, 0x333333, 2.5));
 const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.05, 200);
 camera.position.set(0, 1.6, 4);
 camera.lookAt(0, 1, -1);
-// covSplats meshes (needed for LBS skinning) only render through a covSplats renderer in Spark 2.4.
-const spark = new SparkRenderer({ renderer, covSplats: mode === 'lbs' });
+// Skinned meshes only have a cov generator. Spark 2.4's default (non-ext) accumulator also demands a plain
+// generator and throws "Generator must be provided" (then "No next accumulator" every frame after), so the
+// renderer needs both covSplats and accumExtSplats.
+const spark = new SparkRenderer({ renderer, covSplats: mode === 'lbs', accumExtSplats: mode === 'lbs' });
 scene.add(spark);
 
 // Background load standing in for the world splat at the PRD LoD budget.
