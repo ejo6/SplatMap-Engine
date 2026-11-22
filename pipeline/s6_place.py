@@ -12,6 +12,7 @@ Run in the `people` env:  python pipeline/s6_place.py --work work/<youtubeId>
 import argparse
 import json
 import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -22,6 +23,8 @@ M4 = np.diag([1.0, -1.0, -1.0, 1.0])  # OpenCV camera axes -> three.js camera ax
 FOOT_JOINTS = (10, 11)  # SMPL-X left_foot, right_foot
 CONTACT_M = 0.10  # a foot this close to the floor counts as a contact and gets pinned
 N_JOINTS = 55
+# shortcut: adults only (PRD §12 clips). Shorter solves are SAM fragments or false tracks (IMG_6713: 0.56-0.62 m); lower it for clips with children.
+MIN_HEIGHT_M = 1.2
 
 
 def progress(pct):
@@ -101,6 +104,7 @@ def main():
     if (out / "p0" / "person.json").exists() and not args.force:
         progress(100)
         return
+    shutil.rmtree(out, ignore_errors=True)  # a re-run may keep fewer people
     bodies = sorted((args.work / "S6" / "body").glob("*.npz"))
     cams_path = args.work / "S3" / "cameras.json"
     if not bodies or not cams_path.exists():
@@ -115,7 +119,8 @@ def main():
                          flat_hand_mean=False, num_betas=10)
     parents = model.parents.tolist()
 
-    for k, path in enumerate(bodies):
+    k = 0  # ids count kept people only
+    for n, path in enumerate(bodies):
         body = np.load(path)
         frames = body["frames"]
         A, rest_joints, sole_y, rest_height = skinning(
@@ -131,6 +136,10 @@ def main():
         lowest = feet[np.arange(len(frames)), np.argmax(feet[:, :, 1], axis=1)]  # OpenCV y points down
         scale = solve_scale(lowest, c2w, foot_offset)
         foot_y = np.einsum("fi,fi->f", (c2w @ M4)[:, 1, :3], scale * lowest) + c2w[:, 1, 3]
+        if scale * rest_height < MIN_HEIGHT_M:
+            print(f"skip {path.stem}: solved height {scale * rest_height:.2f} m", file=sys.stderr)
+            progress(100 * (n + 1) / len(bodies))
+            continue
         dy = pin_offsets(foot_y - scale * foot_offset)
         W = world_transforms(c2w, scale, transl, A, dy)  # (span, J, 3, 4)
 
@@ -155,7 +164,8 @@ def main():
             "scale": round(scale, 4),
             "heightM": round(scale * rest_height, 3),  # sanity check: adults ~1.5-1.9, children less
         }, indent=1))
-        progress(100 * (k + 1) / len(bodies))
+        k += 1
+        progress(100 * (n + 1) / len(bodies))
 
 
 if __name__ == "__main__":
