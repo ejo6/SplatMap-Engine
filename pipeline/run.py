@@ -29,7 +29,7 @@ STAGES = [
     ("S1a", "s1_shots.py", "ingest", ["S0"], "no_usable_shot"),
     ("S1b", "s1_director.py", "ingest", ["S1a"], "no_usable_shot"),
     ("S2", "s2_masks.py", "sam3", ["S0", "S1b"], "people_failed"),
-    ("S3", "s3_cameras.py", "recon", ["S0"], "reconstruction_failed"),
+    ("S3", "s3_cameras.py", "recon", ["S0", "S1a"], "reconstruction_failed"),
     ("S3b", "s3b_world.py", "recon", ["S3"], "reconstruction_failed"),
     ("S4a", "s4a_holes.py", "lama", ["S2", "S3b"], "reconstruction_failed"),
     ("S4", "s4_background.py", "recon", ["S2", "S3b", "S4a"], "reconstruction_failed"),

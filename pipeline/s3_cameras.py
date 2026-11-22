@@ -6,7 +6,7 @@ Long shots (E-09): past --chunk keyframes, DA3 runs on overlapping chunks (25% o
 mapped into the first chunk's world by a similarity fitted on the shared keyframes (rotation from the
 camera orientations, scale from the depth ratio, translation from the camera centres). Never independent batches.
 
-  in : work/<id>/S0/frames/*.jpg (every frame of the window, 30 fps)
+  in : work/<id>/S0/frames/*.jpg (every frame of the window, 30 fps), S1/shots.json (selected shot)
   out: work/<id>/S3/raw_cameras.json  {fps, width, height, isMetric, convention:"opencv",
                                        intrinsics:{fx,fy,cx,cy} (video px), keyframes:[f...],
                                        frames:[{f, c2w:[16] row-major}]}   DA3 world, not yet floor-aligned (S3b does that)
@@ -45,13 +45,21 @@ def keyframe_indices(n, step):
 
 
 def interpolate_c2w(kf, c2w_kf, n):
-    """(K,4,4) camera-to-world at keyframes -> (n,4,4) for every frame: slerp rotation, lerp position."""
-    rot = Slerp(kf, Rotation.from_matrix(c2w_kf[:, :3, :3]))(np.arange(n)).as_matrix()
+    """(K,4,4) camera-to-world at keyframes -> (n,4,4) for every frame: slerp rotation, lerp position.
+    Frames outside [kf[0], kf[-1]] (other shots) repeat the edge pose."""
+    rot = Slerp(kf, Rotation.from_matrix(c2w_kf[:, :3, :3]))(np.clip(np.arange(n), kf[0], kf[-1])).as_matrix()
     out = np.tile(np.eye(4), (n, 1, 1))
     out[:, :3, :3] = rot
     for i in range(3):
         out[:, i, 3] = np.interp(np.arange(n), kf, c2w_kf[:, i, 3])
     return out
+
+
+def selected_frames(work, n):
+    """S1a's selected shot as frames [a, b); the whole clip if S1a didn't run (PRD §3: one shot per world)."""
+    p = work / "S1" / "shots.json"
+    sel = json.loads(p.read_text())["selected"] if p.exists() else None
+    return (sel["startFrame"], min(sel["endFrame"], n)) if sel else (0, n)
 
 
 def chunk_ranges(k, size, overlap):
@@ -113,8 +121,9 @@ def main():
     from PIL import Image
     width, height = Image.open(frame_paths[0]).size
     n = len(frame_paths)
-    kf = keyframe_indices(n, max(1, round(args.fps / args.kf_fps)))
-    print(f"{n} frames, {len(kf)} keyframes at {args.process_res}px", file=sys.stderr)
+    a, b = selected_frames(args.work, n)  # keyframes only from the selected shot: a cut would fuse two places
+    kf = [a + k for k in keyframe_indices(b - a, max(1, round(args.fps / args.kf_fps)))]
+    print(f"{n} frames, shot {a}-{b}, {len(kf)} keyframes at {args.process_res}px", file=sys.stderr)
     progress(0)
 
     os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")

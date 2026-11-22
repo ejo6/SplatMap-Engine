@@ -1,3 +1,4 @@
+import json
 import sys
 from pathlib import Path
 
@@ -5,7 +6,8 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from s3_cameras import apply_similarity, check_zoom, chunk_ranges, fit_similarity, interpolate_c2w, keyframe_indices  # noqa: E402
+from s3_cameras import (apply_similarity, check_zoom, chunk_ranges, fit_similarity, interpolate_c2w,  # noqa: E402
+                        keyframe_indices, selected_frames)
 
 
 def test_keyframes_include_last_frame():
@@ -49,3 +51,17 @@ def test_fit_similarity_recovers_transform():
     depth = rng.uniform(1, 5, size=(10, 8, 8))
     s2, R2, t2 = fit_similarity(ref, c2w, depth * s, depth)
     np.testing.assert_allclose(apply_similarity(s2, R2, t2, c2w), ref, atol=1e-9)
+
+
+def test_selected_shot_and_edge_poses(tmp_path):
+    assert selected_frames(tmp_path, 50) == (0, 50)  # no S1: whole clip
+    (tmp_path / "S1").mkdir()
+    (tmp_path / "S1/shots.json").write_text(json.dumps({"selected": {"startFrame": 20, "endFrame": 50}}))
+    a, b = selected_frames(tmp_path, 50)
+    kf = [a + k for k in keyframe_indices(b - a, 6)]
+    assert kf[0] == 20 and kf[-1] == 49
+    c2w = np.tile(np.eye(4), (len(kf), 1, 1))
+    c2w[:, 0, 3] = np.arange(len(kf))
+    out = interpolate_c2w(kf, c2w, 50)
+    assert np.allclose(out[:21], c2w[0])  # frames before the shot repeat its first pose
+    assert np.isclose(out[23, 0, 3], 0.5)

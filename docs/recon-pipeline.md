@@ -6,6 +6,7 @@ Stages S3–S5 and S9a from PRD §7.2. Each reads and writes `work/<youtubeId>/<
 
 - **Run:** `python pipeline/s3_cameras.py --work work/<id> [--kf-fps 5] [--process-res 504] [--zoom-tol 0.08] [--force]`, or `run.py --stages S3`. It skips if `S3/raw_cameras.json` exists.
 - **Input:** `S0/frames/*.jpg`, every frame of the window at 30 fps.
+- **Selected shot only (KAN-87):** keyframes come from S1a's `selected` shot; frames in other shots repeat the shot's edge pose. Before this, a clip with a cut fused two places into one world. S2 likewise keeps per-person tracks only inside the shot (the union mask still covers every frame).
 - **Method:**
   - DA3 (`DA3NESTED-GIANT-LARGE-1.1`, metric) runs on keyframes every 6th frame plus the last frame, as **one global solve** (no stitching, Orbis PR #82).
   - Poses are interpolated to every frame: slerp for rotation, lerp for position.
