@@ -17,12 +17,24 @@ A world folder needs only what the viewer loads: `manifest.json`, `video.mp4`, `
 | `2PBXchYQdao` | Modern living room | no | No people |
 | `CEl6P5wo6ro` | Dark hallway | no | No people |
 | `CThxyXWWqA0` | Hilltop overlook | no | 10 people, holo layer |
+| `SJZnVmv_8Ns` | Snowy ridge traverse | no | 1 person |
+| `evADsZV13gc` | Cathedral nave | no | 6 people |
+| `h357f076SRw` | Mossy forest trail | no | 1 person |
+| `IMG_6713000` | Study room 360 | no | 1 person |
+| `IMG_6714000` | Study room walkaround | no | No people |
+| `IMG_6716000` | Lounge chair spin | no | 3 people |
+| `IMG_6719000` | Meeting room corner | no | 5 people |
+| `IMG_6722000` | Fourth floor hallway | no | 5 people |
+| `IMG_6723000` | Hallway hangout | no | 17 people |
 
-These five are in `web/public/gallery.json`, the source for the landing and `/unavailable` carousels.
+These fifteen are in `web/public/gallery.json`, the source for the landing and `/unavailable` carousels.
+`IMG_*` ids are local iPhone uploads (not YouTube videos), kept at their 11-character folder name so they pass
+the carousel's youtubeId-shaped filter; their `/w/<id>` link still works since the viewer resolves `/w/<id>`
+straight to `worlds/<id>/v1/` regardless of whether `<id>` is a real YouTube id.
+
 A world that isn't on disk still shows in the carousel with its YouTube cover, but its `/w/<id>` link
 won't load. Kept out of the gallery:
-- `2PBXchYQdao-atlas`: a second build of the same youtubeId. The viewer resolves `/w/<id>` by youtubeId, so this folder can't be reached.
-- `IMG_*`: local uploads, not YouTube videos.
+- `2PBXchYQdao-atlas`: a second build of the same youtubeId, at 17 characters it fails the carousel's id-length filter anyway, and the viewer would just reload the same `2PBXchYQdao` content.
 - `test`: the G1 fixture (`docs/world-format.md`).
 - `bedroom`: a people-layer test clip.
 
