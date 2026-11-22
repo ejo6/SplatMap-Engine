@@ -42,7 +42,7 @@ Stages S2, S6, S7 and S8 from PRD §7.2. Each reads and writes `work/<youtubeId>
 
 ## S7a identity frames: `pipeline/s7_identity.py` (A-05)
 
-- **Env:** any env with `pipeline/requirements-gemini.txt` plus numpy and pillow. It needs `GEMINI_API_KEY`; without it, it uses the fallback.
+- **Env:** `ingest` (the runner's choice; `ingest.yml` now lists pillow, but envs built before that lack it and S7a fails on `import PIL`). It needs `GEMINI_API_KEY`; without it, it uses the fallback. S7 doesn't need S7a: it falls back to the same largest-mask rule.
 - **Run:** `python pipeline/s7_identity.py --work work/<id> [--force]`. It skips if `S7/identity.json` exists.
 - **Inputs:** `S0/frames`, `S2/tracks.json` (only instances with `label == "person"`), and `S2/masks/o<id>/`.
 - **Method:**
@@ -98,8 +98,20 @@ Stages S2, S6, S7 and S8 from PRD §7.2. Each reads and writes `work/<youtubeId>
   4. **Foot pinning:** frames where a foot is within 10 cm of the floor get a smoothed vertical shift onto it. Horizontal foot sliding is **not** locked yet.
 - **Outputs (PRD §8.4):**
   - `S6/people/p<k>/motion.bin`: float32 little-endian, shape `(frameCount, 55, 3, 4)`, row-major, indexed by **shot frame**. Frames outside the person's span repeat the edge pose; they're hidden via `visible`. `motion[f][j]` maps a point in the person's **rest space** (their shaped SMPL-X T-pose, metres, **unscaled**) to world, so linear-blend skinning is `Σ w_j · motion[f][j] · [p_rest, 1]`.
-  - `S6/people/p<k>/person.json`: `{id, label, avatar: null, joints: 55, skeleton: "smplx55", parents, restJoints, motion: {url, frameCount, layout}, visible, sourceInstance, scale, heightM}`. `p<k>` follows the sorted `S6/body` files. `avatar` is filled in later by S7/S9a.
+  - `S6/people/p<k>/person.json`: `{id, label, avatar: null, joints: 55, skeleton: "smplx55", parents, restJoints, motion: {url, frameCount, layout}, visible, sourceInstance, scale, heightM}`. `p<k>` numbers the kept people in sorted `S6/body` order. People whose solved height is under 1.2 m are dropped (SAM fragments and false tracks; on IMG_6713 they solved to 0.56–0.62 m). `avatar` is filled in later by S7/S9a.
 - **For A-06/A-07:** the avatar must live in the same rest space (this person's betas, unscaled SMPL-X T-pose) with SMPL-X joint order, so skin weights index these 55 joints directly.
+
+## S7 avatars: `pipeline/s7_avatar.py` (A-06)
+
+- **Env:** `lhm` (LHM-1B, repo at `--lhm-repo` or `$LHM_REPO`, default `/data/src/LHM`). About 2 minutes per person on the A40.
+- **Run:** `python pipeline/s7_avatar.py --work work/<id> [--force]`. It needs `S6/people/p*/person.json` and `S6/body/<objId>.npz`.
+- **Identity image:** `S7/identity/<objId>/best.png` from S7a, or else the frame where the person's mask is largest and not cut off, cropped the same way.
+- **Method:** LHM's own zero-pose export (`infer_mesh`) is run with the person's **GVHMR betas** (zero-padded to LHM's 100). LHM, GVHMR and S6b all use the same `SMPLX_NEUTRAL.npz` (byte-identical), so the Gaussians come out exactly in `motion.bin`'s rest space. LHM keeps one Gaussian per upsampled SMPL-X vertex, in order, so its per-vertex `skinning_weight` (55 joints) is the skin; we keep the top 4 per Gaussian and renormalise.
+- **Outputs (PRD §8.4, `avatar.kind = "splat-lbs"`):**
+  - `S7/people/p<k>/avatar.ply`: 3DGS PLY in rest space. Splat `i` is row `i` of `skin.bin`, so nothing downstream may reorder it.
+  - `S7/people/p<k>/skin.bin`: Float32 little-endian, `N × 8`: 4 joint indices (as floats), then their 4 weights.
+  - `S7/people/p<k>/identity.png` (when S7a didn't run) and LHM's `refer_*.png` preview, for review.
+- **Hands:** LHM's rest uses flat hands, while `motion.bin` includes SMPL-X's mean hand pose, so posed hands come out relaxed rather than flat.
 
 ## Viewer: avatars and people switching `web/src/people/` (A-09)
 
@@ -109,5 +121,5 @@ Stages S2, S6, S7 and S8 from PRD §7.2. Each reads and writes `work/<youtubeId>
   - The avatar is hidden outside `visible`.
   - A blob contact shadow sits on y = 0 under the feet and fades as they rise 0–0.5 m.
   - **Placeholder rendering:** until A-07 picks `avatar.kind`, each person draws as a SMPL-X skeleton (joint-to-parent lines) driven by the same matrices. The real avatar plugs into `Avatar` and reads `motion` the same way.
-- **`index.ts` + `blend.ts` view-dependent blend (A-11, PRD §10.5):** in ride-along, return and scrub, both are hidden, because the video overlay already shows the real people. In walk mode, the avatar weight is `w = max(smoothstep(10°, 20°, angle), smoothstep(0.4, 0.5 m, distance))`. `angle` is between the viewer's view direction and the original camera's, and `distance` is from the original camera position. The people layer is drawn at opacity `1 − w` and the avatars at `w`; each is hidden when its weight is 0. The short distance band avoids a pop at the 0.5 m limit. Movers without an avatar (animals, cars) fade out with the people layer, a known limit. The people-layer video is slaved to the master with SH-02's `slaveVideo`.
+- **`index.ts` + `blend.ts` view-dependent blend (A-11, PRD §10.5):** in ride-along, return and scrub, both are hidden, because the video overlay already shows the real people. In walk mode, the avatar weight is `w = max(smoothstep(10°, 20°, angle), smoothstep(0.4, 0.5 m, distance))`. `angle` is between the viewer's view direction and the original camera's, and `distance` is from the original camera position. The people layer is drawn at opacity `1 − w` and the avatars at `w`; each is hidden when its weight is 0. The short distance band avoids a pop at the 0.5 m limit. Movers without an avatar (animals, cars) fade out with the people layer, a known limit. The people-layer video is slaved to the master with SH-02's `slaveVideo`, at the master's playback speed (SH-17).
 - **Tests:** `cd web && npm test` runs `node --test tests/*.test.ts`. Node strips the TypeScript types, so no test framework is needed.

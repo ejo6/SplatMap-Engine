@@ -11,6 +11,7 @@ export interface ThumbsSprite {
 }
 
 const SEEK_STEP = 5; // seconds, PRD §10.7 arrow keys
+const SPEEDS = [0.5, 1, 1.5, 2]; // SH-17, FR-32
 
 export interface Scrub {
   start(t: number): void;
@@ -76,7 +77,19 @@ export function createTransportUI(
   previewTime.className = 'transport-preview-time';
   preview.appendChild(previewTime);
 
-  root.append(playButton, time, bar, preview);
+  // SH-17: playback speed. The master's playbackRate is the only speed; slaved videos follow it (clock.ts).
+  const speedButton = document.createElement('button');
+  speedButton.className = 'transport-speed';
+  speedButton.type = 'button';
+  speedButton.setAttribute('aria-label', 'Playback speed');
+  const showSpeed = () => (speedButton.textContent = `${video.playbackRate}×`);
+  speedButton.addEventListener('click', () => {
+    video.playbackRate = SPEEDS[(SPEEDS.indexOf(video.playbackRate) + 1) % SPEEDS.length];
+  });
+  video.addEventListener('ratechange', showSpeed);
+  showSpeed();
+
+  root.append(playButton, time, bar, speedButton, preview);
 
   function setPlaying(playing: boolean) {
     playButton.textContent = playing ? '⏸' : '▶';

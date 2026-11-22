@@ -12,4 +12,5 @@ dependencies:
       - httpx2==2.16.2
       - pydantic==2.14.4
       - PyYAML==6.0.3
+      - pillow==12.3.0  # S7a crops
       - boto3==1.44.9

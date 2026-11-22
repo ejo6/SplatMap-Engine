@@ -16,6 +16,10 @@ Stages S3–S5 and S9a from PRD §7.2. Each reads and writes `work/<youtubeId>/<
   - At 504 px: 65 keyframes take 15 GB; 390 take 41.6 GB and 100 s.
   - So a 60 s clip (300 keyframes) fits in one solve, at about 34 GB and 70 s.
   - If S4 needs sharper depth, the follow-up is a chunked high-res depth pass conditioned on these global poses (DA3 accepts input extrinsics and intrinsics).
+- **Long shots (E-09):** a shot with more than `--chunk` keyframes (default 360) is solved in overlapping chunks, with 25% overlap.
+  - Each chunk is moved into the previous chunks' world by a similarity fitted on the shared keyframes. Rotation is the chordal mean of the shared camera rotations, scale is the median depth ratio, and translation comes from the mean camera centre. Fitting scale on depth avoids the degenerate case of a camera that barely moves in the overlap.
+  - The earlier chunk keeps the first half of the overlap. The stage logs each chunk's scale and the largest camera-centre gap on the shared keyframes.
+  - `raw_cameras.json.chunks` records the number of solves. Pi3X, the alternative solver in the brief, isn't wired in.
 - **Outputs** (all in DA3's world: arbitrary origin and axes, metric scale; S3b floor-aligns them):
   - `S3/raw_cameras.json`: `{fps, width, height, isMetric, convention:"opencv", intrinsics:{fx,fy,cx,cy}, keyframes:[f...], frames:[{f, c2w:[16]}]}`. `c2w` is row-major 4×4, **OpenCV** axes (x right, y down, z forward), one entry per frame.
   - `S3/raw_depth/<stem>.npy`: keyframe depth in metres, float16, 280×504. Filenames match `S0/frames`.
@@ -50,6 +54,17 @@ Stages S3–S5 and S9a from PRD §7.2. Each reads and writes `work/<youtubeId>/<
   - The camera is 0.76 m above the ground. That's a genuine low-angle shot (the horizon is at the subject's waist), so it triggers the warning.
   - The camera backs away 6.3 m in front of the walker, matching the footage.
 
+## S4a holes behind people: `pipeline/s4a_holes.py` (E-07)
+
+- **Env:** `lama` (big-lama via `simple-lama-inpainting`). Runs on CPU if no GPU is visible (`CUDA_VISIBLE_DEVICES=`).
+- **Run:** `python pipeline/s4a_holes.py --work work/<id> [--min-hole 0.002] [--stride 2] [--force]`, or `run.py --stages S4a`. It skips if `S4/holes/holes.json` exists.
+- **Hole test:** a masked pixel is a hole if no other keyframe saw the background behind it.
+  - The background depth behind the mover is guessed by interpolating each depth row across the mask.
+  - Each masked pixel (every 2nd) is projected into every other keyframe. It counts as seen if it lands in the frame, outside that frame's mask, and within 10% of that frame's depth.
+- **Fill:** keyframes with holes over 0.2% of the frame get the whole person (mask grown 7 px) removed by LaMa.
+- **Outputs:** `S4/holes/<stem>.png` (255 = hole, full res), `S4/holes/<stem>.jpg` (LaMa frame), `S4/holes/holes.json` `{frames: {stem: holeFraction}}`.
+- **S4 use:** inside a hole, the target is the LaMa frame and the error is scaled by `--hole-weight` (0.2). The rest of the mask stays excluded. Without `S4/holes/`, S4 behaves as before.
+
 ## S4 background splat: `pipeline/s4_background.py` (E-04)
 
 - **Env:** `recon`. gsplat JIT-compiles on first use, so export the CUDA vars from `gpu-setup.md` first (Ninja comes from the env's `bin`).
@@ -71,7 +86,7 @@ Stages S3–S5 and S9a from PRD §7.2. Each reads and writes `work/<youtubeId>/<
   - 30k steps in 19.7 min (about 25 steps/s), 1.44M splats, 133 MB ply, PSNR 21.9 (a night scene with wet reflections).
   - Step time doesn't depend on clip length, so a 60 s clip should stay well under 30 min.
   - Renders at the source poses line up with the frames.
-  - The main walker isn't baked in. Where she blocked the background for the whole clip there's a dark unseen smear; that's the hole E-07 (LaMa) fills.
+  - The main walker isn't baked in. Where she blocked the background for the whole clip there's a dark unseen smear; that's the hole S4a (E-07, LaMa) fills.
 
 ## S5 bounds: `pipeline/s5_bounds.py` (E-06)
 
@@ -90,6 +105,23 @@ Stages S3–S5 and S9a from PRD §7.2. Each reads and writes `work/<youtubeId>/<
 - **Fog colour:** mean of the top third of the keyframes. `eyeHeight` is the median camera height.
 - **Also writes:** `S5/walk_debug.png`, a top-down view: green walkable, red blocked, grey seen floor, white camera path.
 - **Copy into a world:** copy the four files to `worlds/<id>/v1/s0/` and set `shots[0].bounds = {walk, colliders}` in the manifest. This step is S9a's job once that exists.
+## S9a package: `pipeline/s9_package.py` (E-08)
+
+- **Env:** `recon`, CPU only. Spark `build-lod` comes from `$BUILD_LOD`, default `/workspace/src/spark/rust/target/release/build-lod`.
+- **Run:** `python pipeline/s9_package.py --work work/<id> [--worlds-root worlds] [--creator NAME] [--license CC-BY] [--force]`, or `run.py --stages S9a`. It skips if the manifest exists.
+- **Writes `<worlds-root>/<id>/v1/`** in the PRD §8.2 layout:
+  - `world.rad` and `world.spz`, from two `build-lod --quality` runs on `S4/world.ply`: one with `--rad`, one with `--spz`. Given both flags, build-lod writes only the last one, and stale outputs are deleted first.
+  - The video, thumbs and cameras.
+  - S5 bounds, if S5 ran: sets `bounds` and `qa.fogRadius`.
+  - The S8 people layer, if S8 ran: sets `peopleLayer`.
+  - Each `S6/people/p*/` folder (person.json, motion.bin, plus any avatar files S7 puts there): fills `shots[0].people`.
+- **Manifest:**
+  - Title and scene card come from `S1/director.json`, falling back to the ingest title.
+  - `credit.url` is set only for 11-character YouTube IDs.
+  - `qa.verdict` is `unchecked` until S9b.
+  - Only the selected shot is packaged (`s0`); E-10 adds more shots.
+- **Size:** it warns above 100 MB (NFR-05). IMG_6713 (33 s, 1.4M splats, one person) is 92 MB with an 82 s build: rad 42 MB, spz 31 MB, video 16 MB. The viewer loads only one of rad or spz, and `world.spz` is git-ignored under `worlds/`.
+- **Upload:** not done here. Copy the folder into the repo's `worlds/` for the local demo; the K-08 worker uploads it to the CDN.
 
 ## Alignment check and QA renders: `pipeline/tools/align_check.py` (E-05, G2 gate)
 

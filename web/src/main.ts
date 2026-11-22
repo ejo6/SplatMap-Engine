@@ -14,6 +14,7 @@ import { isUnreconstructed, OutOfShotFx, type UnreconstructedRange } from './out
 import { SpatialSoundtrack, startSpatialSoundtrack } from './spatial-audio';
 import { GhostPath } from './ghost-path';
 import { gpuRendererString, isDiscreteGPU, lodBudget } from './gpu';
+import { createHud, type Credit } from './hud';
 import './style.css';
 
 // SH-01: viewer scaffold + world loader (PRD §7.4, §8, §10.8, FR-05)
@@ -27,6 +28,9 @@ function setStatus(text: string) {
 }
 
 interface Manifest {
+  title?: string;
+  credit?: Credit;
+  sceneCard?: string;
   video: { url: string; sourceStart?: number; fps: number; width: number; height: number; thumbs: { sprite: string; index: string } };
   shots: {
     id: string;
@@ -107,7 +111,7 @@ function perfHud(gpu: string, dpr: number, budget: number): () => void {
   };
 }
 
-async function loadWorld(manifest: Manifest, base: string) {
+async function loadWorld(manifest: Manifest, base: string, youtubeId: string) {
   const shot = manifest.shots[0];
   const worldPath = shot?.world.rad ?? shot?.world.spz;
   if (!worldPath) {
@@ -221,6 +225,9 @@ async function loadWorld(manifest: Manifest, base: string) {
   const shotStarts = manifest.shots.map((s) => s.start);
   app.appendChild(createTransportUI(video, base, thumbs, shotStarts, scrub));
 
+  // SH-12: HUD - title, scene card, creator credit, controls hint, ghost-path style (PRD FR-26)
+  app.appendChild(createHud({ ...manifest, youtubeId, onPathStyle: (style) => ghostPath.setStyle(style) }));
+
   const tickPerf = perfHud(gpu, renderer.getPixelRatio(), budget);
   const timer = new THREE.Timer();
   timer.connect(document);
@@ -236,6 +243,7 @@ async function loadWorld(manifest: Manifest, base: string) {
     overlay.setMode(outOfShot ? 'walk' : rig.mode);
     overlay.update(dt);
     people.update(rig.camera, rig.mode);
+    ghostPath.setVisible(rig.mode === 'walk'); // FR-30; restored after the KAN-58 merge dropped it
     renderer.render(scene, rig.camera);
     tickPerf();
   });
@@ -255,7 +263,7 @@ async function main() {
     return;
   }
 
-  await loadWorld(resolved.manifest, resolved.base);
+  await loadWorld(resolved.manifest, resolved.base, youtubeId);
 }
 
 main();

@@ -9,6 +9,7 @@
 /work/
 /worlds/test/
 /worlds/**/*.ply
+/worlds/**/world.spz
 
 # model weights and body models (licensed, never commit)
 models/

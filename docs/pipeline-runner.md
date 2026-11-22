@@ -6,7 +6,7 @@
 python pipeline/run.py --youtube-id <id> [--stages S0..S9] [--window a,b] [--force] [--work-root work]
 ```
 
-- `--stages`: an inclusive range (`S0..S9`) or a comma list (`S2,S8`). A name also matches its substages: `S3` means `S3, S3b`, and `S9` means `S9a, S9b`.
+- `--stages`: an inclusive range (`S0..S9`) or a comma list (`S2,S8`). A name also matches its substages: `S3` means `S3, S3b`, `S4` means `S4a, S4`, and `S9` means `S9a, S9b`.
 - `--force`: re-run the selected stages even if they're done. Stages downstream re-run automatically because their inputs changed.
 - The runner itself needs only the standard library, so any Python 3.10+ works.
 
@@ -22,7 +22,8 @@ The table is `STAGES` at the top of `run.py`. **Owners: when you add a stage scr
 | S2 | `s2_masks.py` | sam3 | S0, S1b | people_failed |
 | S3 | `s3_cameras.py` | recon | S0 | reconstruction_failed |
 | S3b | `s3b_world.py` | recon | S3 | reconstruction_failed |
-| S4 | `s4_background.py` | recon | S2, S3b | reconstruction_failed |
+| S4a | `s4a_holes.py` | lama | S2, S3b | reconstruction_failed |
+| S4 | `s4_background.py` | recon | S2, S3b, S4a | reconstruction_failed |
 | S5 | `s5_bounds.py` | recon | S4 | reconstruction_failed |
 | S6a | `s6_body.py` | people | S2, S3b | people_failed |
 | S6b | `s6_place.py` | people | S6a | people_failed |

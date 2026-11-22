@@ -75,6 +75,7 @@ def main():
     import torch
     from hydra import compose, initialize_config_module
 
+    import hmr4d.model.gvhmr.gvhmr_pl_demo  # noqa: F401  registers model/gvhmr/gvhmr_pl_demo for compose()
     from hmr4d.configs import register_store_gvhmr
     from hmr4d.utils.geo.hmr_cam import estimate_K, get_bbx_xys_from_xyxy
     from hmr4d.utils.geo_transform import compute_cam_angvel

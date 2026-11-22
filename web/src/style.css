@@ -43,6 +43,17 @@ html, body, #app {
   width: 24px;
 }
 
+.transport-speed {
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  padding: 0;
+  min-width: 32px;
+}
+
 .transport-time {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -104,4 +115,145 @@ html, body, #app {
   padding: 1px 4px;
   border-radius: 2px;
   font-size: 11px;
+}
+
+/* SH-12: HUD (PRD FR-26). The container ignores the pointer so clicks fall through to the canvas. */
+.hud {
+  position: fixed;
+  inset: 0;
+  z-index: 11;
+  pointer-events: none;
+  font: 13px/1.4 system-ui, sans-serif;
+  color: #eee;
+}
+
+.hud a,
+.hud button {
+  pointer-events: auto;
+}
+
+.hud-intro {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  max-width: min(420px, 60vw);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.hud-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.hud-card {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  text-shadow: none;
+  transition: opacity 1s;
+}
+
+.hud-faded {
+  opacity: 0;
+}
+
+.hud-corner {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.hud-credit {
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #eee;
+  text-decoration: none;
+}
+
+a.hud-credit:hover {
+  text-decoration: underline;
+}
+
+.hud-tools {
+  display: flex;
+  gap: 6px;
+}
+
+.hud-segmented {
+  display: flex;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.hud-button {
+  padding: 4px 10px;
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  color: #bbb;
+  font: inherit;
+  cursor: pointer;
+}
+
+.hud-segmented .hud-button + .hud-button {
+  border-left: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.hud-button[aria-pressed='true'] {
+  background: rgba(255, 255, 255, 0.85);
+  color: #111;
+}
+
+.hud-help {
+  border-radius: 4px;
+  min-width: 26px;
+}
+
+.hud-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 16px 20px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.75);
+  pointer-events: auto;
+}
+
+.hud-hint[hidden] {
+  display: none;
+}
+
+.hud-hint-title {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+
+.hud-keys {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 4px 16px;
+  margin: 0 0 14px;
+}
+
+.hud-keys dt {
+  font-weight: 600;
+  color: #fff;
+}
+
+.hud-keys dd {
+  margin: 0;
+  color: #ccc;
+}
+
+.hud-close {
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.85);
+  color: #111;
 }

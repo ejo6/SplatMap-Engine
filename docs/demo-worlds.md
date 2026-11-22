@@ -5,7 +5,7 @@ Packaged worlds live in `worlds/<id>/v1/` and **are committed**, so a fresh clon
 symlink to the repo-root `worlds/`.
 
 Commit only what the viewer loads: `manifest.json`, `video.mp4`, `thumbs.jpg/json`, `s0/cameras.json`,
-`s0/world.rad` (plus people files once they exist). Sources, frames and the training `world.ply` stay
+`s0/world.rad`, plus the S5 bounds and people files when present. `pipeline/s9_package.py` builds the folder; `world.spz` is git-ignored. Sources, frames and the training `world.ply` stay
 in `work/` (git-ignored; `*.ply` is also ignored under `worlds/`). Each world adds about 60 MB to the
 repo history for good, so re-commit a world only when it really changed.
 
