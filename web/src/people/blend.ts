@@ -16,3 +16,10 @@ export function smoothstep(edge0: number, edge1: number, x: number): number {
 export function avatarWeight(angleDeg: number, distM: number): number {
   return Math.max(smoothstep(FADE_START_DEG, FADE_END_DEG, angleDeg), smoothstep(DIST_START_M, DIST_END_M, distM));
 }
+
+/** KAN-85: whether to show the avatars, given whether they're shown now and the view's `avatarWeight`.
+ *  Hysteresis: swap to avatars past the middle of the band, and back only once fully inside the real-pixel zone,
+ *  so walking along the edge doesn't flicker and the two never sit half-blended for long. */
+export function showAvatars(showing: boolean, weight: number): boolean {
+  return showing ? weight > 0 : weight >= 0.5;
+}
