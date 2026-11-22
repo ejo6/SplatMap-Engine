@@ -63,7 +63,7 @@ The setup tickets point here. **Request gated access (SAM 3, SMPL-X) first, beca
 | **SMPL-X / SMPL** (`smpl-x.is.tue.mpg.de`, `smpl.is.tue.mpg.de`) | Adam | Body model files for the body tracker and LHM | Free registration; non-commercial licence |
 | RunPod | Eric | Fallback GPU (A100 80 GB, or 4090 for dev) | Needs a card. Use only if Vultr GPUs aren't covered. |
 | Throwaway Google account | Kevin | yt-dlp cookies **only if** downloads are bot-blocked | Never use a personal account (ban risk) |
-| World Labs (Marble API) | Eric | **Only if ticket E-12 is approved** | API credits are separate from app credits; cap $5 |
+| World Labs (Atlas API) | Eric | For S4b (E-12) | Project key from atlas.worldlabs.ai/developers (`tasks.create`, `operations.read`, `assets.create`, `assets.read`); log spend in the ledger |
 | Domain (optional) | Kevin | Clean URL for the extension | Free at the MLH GoDaddy Registry table, or use the Vultr CDN URL |
 
 ### 2.2 Local machine (every Mac)
@@ -625,9 +625,9 @@ Gates are tracked as labels. A gate passes when every ticket carrying its label 
   - [ ] Both worlds live on the CDN, each meeting NFR-01/02.
   - [ ] Timings recorded.
 
-#### E-12 · Room-fill experiment (HY-World 2.0, then Marble)
-- **Owner:** Eric · **P2** · Size M · Labels: `area-recon`, `experiment` · Blocked by: E-11 · PRD §3 (Marble), §11
-- On one hero clip, try free HY-World 2.0 fill outside the observed coverage. **Only with team approval**, try one Marble 1.1 world (API credits, $5 or less, logged). Align the result and train it against the real frames. Mark the generated splats so they can be tinted. Compare with fog.
+#### E-12 · Room fill with World Labs Atlas (S4b)
+- **Owner:** Eric · **P2** · Size M · Labels: `area-recon`, `experiment` · Blocked by: E-04 · PRD §3 (World Labs Atlas), §11
+- Send a clip's keyframes, cameras, depth and mover masks to Atlas `posedImages2Splats` (refine on) and keep the returned splats that fall outside the observed area. Mark the generated splats so they can be tinted. Compare with fog. Log spend in the ledger.
 - **Acceptance:**
   - [ ] Side-by-side renders posted.
   - [ ] Team decides whether it goes in the demo.
