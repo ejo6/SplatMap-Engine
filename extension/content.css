@@ -13,7 +13,7 @@
   flex-shrink: 0;
   font: 500 14px/1 Roboto, Arial, sans-serif;
   height: 36px;
-  margin-inline-start: 8px;
+  margin-inline: 8px;
   padding-inline: 16px;
   white-space: nowrap;
 }
