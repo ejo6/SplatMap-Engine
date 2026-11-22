@@ -31,13 +31,14 @@ app.innerHTML = `
       <img class="land" src="/landing/moraine-2560.webp" srcset="/landing/moraine-1280.webp 1280w, /landing/moraine-2560.webp 2560w" sizes="100vw" alt="" fetchpriority="high">
       <div class="reflection">
         <img src="/landing/moraine-2560.webp" srcset="/landing/moraine-1280.webp 1280w, /landing/moraine-2560.webp 2560w" sizes="100vw" alt="">
-        <img class="echo" alt="" hidden>
+        <img class="echo" alt="">
       </div>
     </div>
     <h1 id="hero-title">Every video is a&nbsp;window.</h1>
     <form class="shore" novalidate>
       <label class="sr" for="video">YouTube link</label>
       <div class="field">
+        <img class="thumb" alt="">
         <input id="video" type="text" inputmode="url" placeholder="Paste a YouTube link" aria-describedby="hint error" autocomplete="off" spellcheck="false">
         <button type="submit">Step inside</button>
       </div>
@@ -102,7 +103,16 @@ app.innerHTML = `
 
 // --- Waterline: keep the form and the reflection split exactly on the photo's lake edge. ---
 const lake = document.querySelector<HTMLElement>('.lake')!;
-const placeWaterline = () => lake.style.setProperty('--waterline', `${waterlineY(lake.clientWidth, lake.clientHeight)}px`);
+const header = document.querySelector<HTMLElement>('.top')!;
+const shore = document.querySelector<HTMLElement>('.shore')!;
+const placeWaterline = () => {
+  const y = waterlineY(lake.clientWidth, lake.clientHeight);
+  lake.style.setProperty('--waterline', `${y}px`);
+  // A pasted video's thumbnail replaces the headline: it fills the room from under the header down to the bar
+  // (bar top = y - 33, 14px gaps), no wider than the bar itself, 16:9.
+  const room = y - 33 - 14 - header.offsetHeight - 14;
+  lake.style.setProperty('--thumb-h', `${Math.max(0, Math.min(room, (shore.clientWidth * 9) / 16))}px`);
+};
 placeWaterline();
 new ResizeObserver(placeWaterline).observe(lake);
 
@@ -123,24 +133,40 @@ if (!reduceMotion) {
   requestAnimationFrame(swell);
 }
 
-// --- The link field: a valid link floats that video's own thumbnail on the water, as its reflection. ---
+// --- The link field: a valid link shows that video's thumbnail just above the bar, mirrored in the water below. ---
 const form = document.querySelector<HTMLFormElement>('.shore')!;
 const input = document.querySelector<HTMLInputElement>('#video')!;
 const error = document.querySelector('#error')!;
+const thumb = document.querySelector<HTMLImageElement>('.thumb')!;
 const echo = document.querySelector<HTMLImageElement>('.echo')!;
-echo.addEventListener('load', () => (echo.hidden = false));
-echo.addEventListener('error', () => (echo.hidden = true));
+const showThumb = (show: boolean) => lake.classList.toggle('has-thumb', show);
+// Sharpest first: maxres is 1280x720 but missing on some videos, where YouTube answers with a 404 or a 120x90
+// placeholder; then 640x480 and 480x360 (both letterboxed, cropped by object-fit). The image is shown up to 640px wide.
+const THUMB_SIZES = ['maxresdefault', 'sddefault', 'hqdefault'];
+let thumbId = '';
+let thumbTry = 0;
+const loadThumb = () => (thumb.src = `https://i.ytimg.com/vi/${thumbId}/${THUMB_SIZES[thumbTry]}.jpg`);
+const nextThumb = () => (++thumbTry < THUMB_SIZES.length ? loadThumb() : showThumb(false));
+thumb.addEventListener('load', () => {
+  if (thumb.naturalWidth <= 120) return void nextThumb();
+  echo.src = thumb.src;
+  showThumb(true);
+});
+thumb.addEventListener('error', () => void nextThumb());
 
 input.addEventListener('input', () => {
   error.textContent = '';
   input.removeAttribute('aria-invalid');
   const id = youtubeId(input.value);
   if (!id) {
-    echo.hidden = true;
+    showThumb(false);
     return;
   }
   stir = 26; // the water answers
-  echo.src = `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+  if (id === thumbId) return void showThumb(thumb.complete && thumb.naturalWidth > 120); // same link again: no new load event
+  thumbId = id;
+  thumbTry = 0;
+  loadThumb();
 });
 
 form.addEventListener('submit', (event) => {
