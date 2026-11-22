@@ -35,15 +35,14 @@ works, including `IMG_*` uploads and renamed copies such as `IMG_6719000`.
 
 - **Cover:** for an 11-character YouTube id, YouTube's 1280×720 `maxresdefault.jpg`; otherwise (or when YouTube has
   no maxres cover) a frame at 0.5 s of the world's own `video.mp4`. No `thumb.jpg` is needed.
-- **Title and credit:** from the `gallery.json` entry whose `youtubeId` matches the folder name or the manifest's
-  `youtubeId`; otherwise the manifest's `title` and credit. `gallery.json` order puts curated worlds first.
+- **No title or credit on the cards:** we don't reliably know each video's name, so a card is just its cover and
+  link. (`web/public/gallery.json`, the old hand-curated list, was removed.)
 - **Left out:** `worlds/test/` (the G1 fixture), folders without `v1/manifest.json`, and an alternate build such as
   `2PBXchYQdao-atlas` when the folder named for its `youtubeId` also exists.
 
 **Landing and /unavailable (KAN-88).** No new videos are processed for the demo. The landing form opens `/w/<id>`
 only if `<id>` is one of the worlds on disk; any other valid link goes to `/unavailable` ("The GPU cluster is
-unavailable"). To add a world, copy its folder into `worlds/` (not committed); to give it a nicer title, add an
-entry to `gallery.json`.
+unavailable"). To add a world, copy its folder into `worlds/` (not committed).
 
 ### Checking spatial audio in desktop Chrome
 

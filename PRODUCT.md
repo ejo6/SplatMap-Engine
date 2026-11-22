@@ -27,7 +27,7 @@ Step Into the Video turns a YouTube video into a place you can walk around insid
 ## Capabilities and Constraints
 - Stack: existing **Vite + TypeScript + three.js + Spark** app in `web/`. `/` routes to the landing page and everything else to the viewer (`web/src/entry.ts`).
 - URL input accepts watch, youtu.be and Shorts links (`web/src/youtube.ts`). Invalid input shows an inline error (FR-03).
-- The gallery reads `web/public/gallery.json` (`[{youtubeId, title, thumb, credit}]`, PRD §9). It must show title, thumbnail and **creator credit** (FR-04, §12).
+- The gallery carousel lists the world folders on disk (`/worlds-index.json` from `web/vite.config.ts`). Cards are image only (YouTube cover or a frame of the world's video) and link to `/w/<folder>`; no titles, since we don't reliably know each video's name (KAN-93).
 - MVP processes a window of 60 s or less of a single continuous shot. Desktop only; no mobile or VR (PRD §2 non-goals).
 - The landing page itself must stay light: no heavy 3D on the page (the demo laptop also has to run the viewer).
 

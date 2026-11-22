@@ -161,7 +161,7 @@ To get another world, copy its folder (for example `worlds/CThxyXWWqA0/`) from t
 | Dark hallway | `CEl6P5wo6ro` | no |
 | Hilltop overlook (10 people) | `CThxyXWWqA0` | no |
 
-A world shows up in the carousel as soon as its folder is in `worlds/`. `web/public/gallery.json` only gives worlds nicer titles and credits. Details are in [docs/demo-worlds.md](docs/demo-worlds.md).
+A world shows up in the carousel as soon as its folder is in `worlds/`. Details are in [docs/demo-worlds.md](docs/demo-worlds.md).
 
 ## Building a new world (GPU pipeline)
 
@@ -188,7 +188,6 @@ The step-by-step guide, from a YouTube link to a world you can walk in, is [docs
 | `extension/` | Chrome MV3 extension: the Step inside button (`content.js`, `content.css`, `config.js`) |
 | `web/` | Landing page and viewer (Vite + TypeScript + three.js + Spark) |
 | `web/src/people/` | Avatars, the real-pixel people layer and the blend between them |
-| `web/public/gallery.json` | Curated titles and credits for the carousel |
 | `pipeline/` | Stage scripts `s0_ingest.py` … `s9_package.py`, the runner `run.py`, conda envs in `envs/`, tests in `tests/` |
 | `config/` | `gemini.yaml`: the pinned Gemini model and prompts |
 | `server/` | Placeholder for the job API and GPU worker (planned, not built) |

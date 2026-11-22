@@ -20,5 +20,4 @@ test('world index: folders with a manifest, no test fixture, no alternate build 
   fs.writeFileSync(path.join(dir, '.DS_Store'), '');
 
   assert.deepEqual(worldsIndex(dir).map((w) => w.id), ['2PBXchYQdao', 'IMG_6713', 'IMG_6719000']);
-  assert.equal(worldsIndex(dir)[1].title, 'Study room 360');
 });

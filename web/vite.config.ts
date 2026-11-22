@@ -10,7 +10,7 @@ export function worldsIndex(dir = WORLDS) {
   const found = fs.readdirSync(dir).sort().flatMap((id) => {
     try {
       const m = JSON.parse(fs.readFileSync(path.join(dir, id, 'v1', 'manifest.json'), 'utf8'));
-      return id === 'test' ? [] : [{ id, youtubeId: m.youtubeId ?? id, title: m.title, credit: m.credit, video: m.video?.url ?? 'video.mp4' }];
+      return id === 'test' ? [] : [{ id, youtubeId: m.youtubeId ?? id, video: m.video?.url ?? 'video.mp4' }];
     } catch {
       return []; // not a packaged world (no v1/manifest.json)
     }

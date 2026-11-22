@@ -1,53 +1,23 @@
 // KAN-88: the built worlds as a rotating carousel, on the landing page and on /unavailable.
 // KAN-93: the list is the world folders actually on this machine (/worlds-index.json, served by vite.config.ts),
-// so every card routes to a world that exists here. gallery.json only adds curated titles, credits and order.
-
-import { creditText, type Credit } from './hud';
+// so every card routes to a world that exists here. Cards are image only: we don't reliably know a video's name.
 
 export interface World {
   id: string; // the worlds/ folder name, routed as /w/<id>
-  title: string;
-  credit: string;
-  video: string;
-}
-
-interface DiskWorld {
-  id: string;
-  youtubeId: string;
-  title?: string;
-  credit?: Credit;
   video: string;
 }
 
 const ROTATE_MS = 6000;
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const text = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 
 let worlds: Promise<World[]> | undefined;
-/** The worlds on disk, curated ones first; rejects if the index can't be read. */
+/** The worlds on disk; rejects if the index can't be read. */
 export function loadWorlds(): Promise<World[]> {
-  worlds ??= Promise.all([
-    fetch('/worlds-index.json').then((r) => (r.ok ? r.json() : Promise.reject(new Error('World index unavailable')))),
-    fetch('/gallery.json').then((r) => (r.ok ? r.json() : [])).catch(() => []),
-  ]).then(([disk, gallery]: [DiskWorld[], { youtubeId?: string; title?: string; credit?: string }[]]) => {
-    const curated = Array.isArray(gallery) ? gallery : [];
-    const rank = (w: DiskWorld) => {
-      const i = curated.findIndex((g) => g?.youtubeId === w.id || g?.youtubeId === w.youtubeId);
-      return i < 0 ? curated.length : i;
-    };
-    return (Array.isArray(disk) ? disk : [])
+  worlds ??= fetch('/worlds-index.json')
+    .then((r) => (r.ok ? r.json() : Promise.reject(new Error('World index unavailable'))))
+    .then((disk: World[]) => (Array.isArray(disk) ? disk : [])
       .filter((w) => /^[\w-]+$/.test(w?.id))
-      .sort((a, b) => rank(a) - rank(b))
-      .map((w) => {
-        const g = curated[rank(w)];
-        return {
-          id: w.id,
-          title: text(g?.title) || text(w.title) || w.id,
-          credit: text(g?.credit) ? 'Video by ' + text(g?.credit) : creditText(w.credit, w.id).text,
-          video: `/worlds/${w.id}/v1/${w.video}`,
-        };
-      });
-  });
+      .map((w) => ({ id: w.id, video: `/worlds/${w.id}/v1/${w.video}` })));
   return worlds;
 }
 
@@ -112,12 +82,8 @@ export async function mountCarousel(root: HTMLElement) {
     slide.href = '/w/' + world.id;
     slide.setAttribute('role', 'group');
     slide.setAttribute('aria-roledescription', 'slide');
-    slide.setAttribute('aria-label', `${i + 1} of ${list.length}: ${world.title}`);
-    const title = document.createElement('strong');
-    title.textContent = world.title;
-    const credit = document.createElement('small');
-    credit.textContent = world.credit;
-    slide.append(cover(world, i === 0), title, credit);
+    slide.setAttribute('aria-label', `World ${i + 1} of ${list.length}`);
+    slide.append(cover(world, i === 0));
     return slide;
   });
   track.append(...slides);
@@ -137,8 +103,8 @@ export async function mountCarousel(root: HTMLElement) {
   const prev = button('Previous world', icon('M15 5l-7 7 7 7'));
   const next = button('Next world', icon('M9 5l7 7-7 7'));
   prev.className = next.className = 'step';
-  const dots = list.map((world) => {
-    const d = button('Show ' + world.title, '');
+  const dots = list.map((_, i) => {
+    const d = button(`Show world ${i + 1}`, '');
     d.className = 'dot';
     return d;
   });
