@@ -27,6 +27,7 @@ import torch.nn.functional as F
 from PIL import Image
 
 STAGE = "S2"
+KEEP_FRAMES = 32  # tracker look-back kept in the session (>= num_maskmem and max object pointers)
 MODEL_ID = "facebook/sam3"
 
 
@@ -99,9 +100,10 @@ def main():
     # Default is 10000 (no cap): a crowd makes the per-frame N x N mask IoU and tracker state blow GPU memory.
     model.max_num_objects = args.max_objects
     processor = Sam3VideoProcessor.from_pretrained(MODEL_ID)
-    # Frames live on CPU so a 60 s clip doesn't fill GPU memory.
+    # Frames and per-frame tracker state live on CPU so a 60 s clip doesn't fill GPU memory.
     session = processor.init_video_session(
-        video=frames, inference_device=device, processing_device="cpu", video_storage_device="cpu", dtype=dtype
+        video=frames, inference_device=device, processing_device="cpu", video_storage_device="cpu",
+        inference_state_device="cpu", dtype=dtype,
     )
     session = processor.add_text_prompt(inference_session=session, text=list(prompts))
     del frames
@@ -117,6 +119,12 @@ def main():
         for i, mo in enumerate(model.propagate_in_video_iterator(inference_session=session)):
             o = processor.postprocess_outputs(session, mo)
             f = mo.frame_idx
+            # The tracker only reads back num_maskmem frames and 16 object pointers; drop older non-conditioning
+            # outputs or state grows with clip length (KAN-76: 1800 frames OOM'd a 44 GB A40 at 80%).
+            for per_obj in session.output_dict_per_obj.values():
+                past = per_obj["non_cond_frame_outputs"]
+                for k in [k for k in past if k < f - KEEP_FRAMES]:
+                    del past[k]
             png = frame_paths[f].stem + ".png"  # same name as the source frame, whatever S0's numbering
             prompt_of = {oid: p for p, ids in o["prompt_to_obj_ids"].items() for oid in ids}
             masks = o["masks"]
