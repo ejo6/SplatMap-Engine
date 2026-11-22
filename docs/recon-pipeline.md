@@ -16,6 +16,10 @@ Stages S3–S5 and S9a from PRD §7.2. Each reads and writes `work/<youtubeId>/<
   - At 504 px: 65 keyframes take 15 GB; 390 take 41.6 GB and 100 s.
   - So a 60 s clip (300 keyframes) fits in one solve, at about 34 GB and 70 s.
   - If S4 needs sharper depth, the follow-up is a chunked high-res depth pass conditioned on these global poses (DA3 accepts input extrinsics and intrinsics).
+- **Long shots (E-09):** a shot with more than `--chunk` keyframes (default 360) is solved in overlapping chunks, with 25% overlap.
+  - Each chunk is moved into the previous chunks' world by a similarity fitted on the shared keyframes. Rotation is the chordal mean of the shared camera rotations, scale is the median depth ratio, and translation comes from the mean camera centre. Fitting scale on depth avoids the degenerate case of a camera that barely moves in the overlap.
+  - The earlier chunk keeps the first half of the overlap. The stage logs each chunk's scale and the largest camera-centre gap on the shared keyframes.
+  - `raw_cameras.json.chunks` records the number of solves. Pi3X, the alternative solver in the brief, isn't wired in.
 - **Outputs** (all in DA3's world: arbitrary origin and axes, metric scale; S3b floor-aligns them):
   - `S3/raw_cameras.json`: `{fps, width, height, isMetric, convention:"opencv", intrinsics:{fx,fy,cx,cy}, keyframes:[f...], frames:[{f, c2w:[16]}]}`. `c2w` is row-major 4×4, **OpenCV** axes (x right, y down, z forward), one entry per frame.
   - `S3/raw_depth/<stem>.npy`: keyframe depth in metres, float16, 280×504. Filenames match `S0/frames`.
