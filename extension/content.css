@@ -1,4 +1,7 @@
-#step-into-the-video-button {
+/* Fallback look only. At runtime content.js gives the button the classes of YouTube's own Share pill, so YouTube's
+   styles decide its height, font, padding and colours. :where() keeps these rules at zero specificity so they never
+   override those classes. */
+:where(#step-into-the-video-button) {
   align-self: center;
   position: relative;
   display: inline-flex;
@@ -13,12 +16,11 @@
   flex-shrink: 0;
   font: 500 14px/1 Roboto, Arial, sans-serif;
   height: 36px;
-  margin-inline: 8px;
   padding-inline: 16px;
   white-space: nowrap;
 }
 
-#step-into-the-video-button:hover {
+:where(#step-into-the-video-button):hover {
   background: var(--yt-spec-10-percent-layer, #ddd);
 }
 
