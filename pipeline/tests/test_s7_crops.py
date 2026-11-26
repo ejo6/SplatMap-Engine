@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from s7_identity import crop_person, pick_candidates, valid_ranking  # noqa: E402
+from s7_avatar import crop_person, pick_candidates  # noqa: E402
 
 
 def test_pick_candidates_one_per_bin_skipping_border():
@@ -12,13 +12,6 @@ def test_pick_candidates_one_per_bin_skipping_border():
     border = {f: f in (7, 15) for f in range(16)}  # the biggest of each half is cut off by the edge
     assert pick_candidates(areas, border, k=2) == [6, 14]
     assert pick_candidates({3: 1}, {3: True}, k=8) == [3]  # nothing better: keep it
-
-
-def test_valid_ranking():
-    assert valid_ranking([2, 0, 1], 3)
-    assert not valid_ranking([0, 0, 1], 3)
-    assert not valid_ranking([0, 1], 3)
-    assert not valid_ranking([0, 1, 3], 3)
 
 
 def test_crop_blanks_everything_outside_the_mask():

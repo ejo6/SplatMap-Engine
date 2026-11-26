@@ -1,4 +1,3 @@
-import json
 import sys
 from pathlib import Path
 
@@ -22,10 +21,6 @@ def test_dilate_grows_by_px():
     assert torch.equal(dilate(m, 0), m)
 
 
-def test_load_prompts(tmp_path):
-    assert load_prompts(tmp_path / "missing.json") == {"person": "person"}
-    p = tmp_path / "director.json"
-    p.write_text(json.dumps({"subjects": []}))
-    assert load_prompts(p) == {"person": "person"}
-    p.write_text(json.dumps({"subjects": [{"noun": "vlogger", "kind": "person"}, {"noun": "dog", "kind": "animal"}]}))
-    assert load_prompts(p) == {"person": "person", "dog": "animal"}
+def test_load_prompts():
+    assert load_prompts("person") == {"person": "person"}
+    assert load_prompts(" Person, dog,,car ") == {"person": "person", "dog": "other", "car": "other"}

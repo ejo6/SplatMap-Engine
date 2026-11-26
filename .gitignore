@@ -23,6 +23,11 @@ models/
 *.npz
 *.pkl
 
+# AI Tools
+
+.codex/
+.copilot/
+
 # build / deps
 node_modules/
 dist/

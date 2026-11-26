@@ -23,10 +23,10 @@ build() {
   [ -d $p ] || mamba env create -y -q -p $p -f $HERE/$e.yml || return 1
   local pip="$p/bin/pip install -q"
   case $e in
-    recon) $pip -e $W/src/Depth-Anything-3 && $pip --no-deps -e $W/src/Pi3 ;;
+    recon) $pip -e $W/src/Depth-Anything-3 ;;
     sam3)  $pip -e $W/src/sam3 ;;
     people) $pip numpy==1.23.5 && $pip --no-build-isolation chumpy==0.70 \
-             && $pip -r $W/src/GVHMR/requirements.txt && $pip -e $W/src/GVHMR ;;  # Multi-HMR runs from its repo dir; its deps are in people.yml
+             && $pip -r $W/src/GVHMR/requirements.txt && $pip -e $W/src/GVHMR ;;
     lhm)   (cd $W/src/LHM && $pip numpy==1.23.0 && $pip --no-build-isolation chumpy==0.70 && $pip -r requirements.txt && $p/bin/pip uninstall -y -q basicsr \
              && $pip git+https://github.com/XPixelGroup/BasicSR git+https://github.com/hitsz-zuoqi/sam2/ \
              && $pip --no-build-isolation git+https://github.com/ashawkey/diff-gaussian-rasterization/ git+https://github.com/camenduru/simple-knn/) ;;
@@ -34,4 +34,4 @@ build() {
 }
 
 if [ "${1:-}" = link ]; then link; exit; fi
-for e in ${@:-recon sam3 ingest depth lama node people lhm}; do build $e 2>&1 && echo "ENV_OK $e" || echo "ENV_FAIL $e"; done
+for e in ${@:-recon sam3 people lhm depth}; do build $e 2>&1 && echo "ENV_OK $e" || echo "ENV_FAIL $e"; done

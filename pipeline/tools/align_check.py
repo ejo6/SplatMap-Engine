@@ -5,10 +5,10 @@
 1. Renders the S4 splat at n evenly spaced frames from S3/cameras.json and compares with the source frames.
    PSNR/SSIM are on non-mover pixels (S2 union mask), since movers aren't in the splat.
    -> qa/align.json {frames:[{f, psnr, ssim}], psnr, ssim}, qa/align_sheet.jpg (source | render | 50/50 blend)
-2. Renders 8 QA views for K-04 (Gemini gate) and human review: path at 25/50/75%, and at 50%
+2. Renders 8 QA views for human review: path at 25/50/75%, and at 50%
    +-1 m sideways, 1 m forward, +-20 deg yaw.
    -> qa/view_<name>.jpg, qa/views.json [{name, file, c2w:[16]}]
-Runs in the `recon` env (gsplat; export the CUDA vars from docs/gpu-setup.md).
+Runs as S9b of pipeline/run.py (or by hand in the `recon` env with the CUDA vars from docs/gpu-setup.md).
 """
 import argparse
 import json
@@ -44,6 +44,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--work", required=True, type=Path, help="work/<youtubeId>")
     ap.add_argument("--n", type=int, default=10)
+    ap.add_argument("--force", action="store_true", help="accepted for the runner; renders are always redone")
     args = ap.parse_args()
 
     import torch

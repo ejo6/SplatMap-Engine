@@ -1,4 +1,4 @@
-# S6: body trackers for spike A-02 — GVHMR and Multi-HMR (KAN-37..39). Needs SMPL-X files.
+# S6: GVHMR body tracking + smplx placement. Needs SMPL-X files.
 # After create: chumpy (no build isolation), GVHMR requirements.txt, pip install -e GVHMR (see setup_gpu.sh)
 name: people
 channels: [conda-forge]

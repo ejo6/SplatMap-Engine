@@ -3,7 +3,7 @@
 Assembles the world package from the stage outputs. Optional pieces (S5 bounds, S8 people layer,
 S6 people) are included when their stage has run, so a world can be packaged before people exist.
 
-  in : work/<id>/S0/{video.mp4, thumbs.jpg, thumbs.json, ingest.json}, S1/{shots.json, director.json},
+  in : work/<id>/S0/{video.mp4, thumbs.jpg, thumbs.json, ingest.json},
        S3/cameras.json, S4/{world.ply, train.json}, S5/* (optional), S6/people/p*/ + S7/people/p*/ (optional),
        S8/holo.* (optional)
   out: <worlds-root>/<id>/v<version>/ (PRD §8.2 layout) with manifest.json
@@ -65,13 +65,10 @@ def main():
         shutil.copy(w / "S0" / f, out / f)
     shutil.copy(w / "S3/cameras.json", s0 / "cameras.json")
 
-    shots = json.loads((w / "S1/shots.json").read_text())
-    sel = shots["selected"]
     ingest = json.loads((w / "S0/ingest.json").read_text())
-    director = json.loads(p.read_text()) if (p := w / "S1/director.json").exists() else {}
-    card = director.get("sceneCard") or {}
-    shot = {
-        "id": "s0", "start": sel["start"], "end": sel["end"], "frameCount": sel["frameCount"],
+    duration = ingest["frameCount"] / ingest["fps"]
+    shot = {  # the whole clip is one shot (no cut detection: the uploader trims to one continuous shot)
+        "id": "s0", "start": 0, "end": duration, "frameCount": ingest["frameCount"],
         "world": {"rad": "s0/world.rad", "spz": "s0/world.spz",
                   "splatCount": json.loads((w / "S4/train.json").read_text())["splats"]},
         "cameras": "s0/cameras.json",
@@ -107,15 +104,15 @@ def main():
 
     manifest = {
         "schema": 1, "pipelineVersion": PIPELINE_VERSION, "youtubeId": vid,
-        "title": card.get("title") or ingest.get("title") or vid,
+        "title": ingest.get("title") or vid,
         "credit": {"creator": args.creator, "license": args.license,
                    "url": f"https://youtube.com/watch?v={vid}" if len(vid) == 11 else ""},
-        "sceneCard": " ".join(card.get("sentences", [])),
-        "video": {"url": "video.mp4", "fps": shots["fps"], "width": 1280, "height": 720,
-                  "duration": ingest["frameCount"] / ingest["fps"], "sourceStart": ingest["sourceStart"],
+        "sceneCard": "",
+        "video": {"url": "video.mp4", "fps": ingest["fps"], "width": 1280, "height": 720,
+                  "duration": duration, "sourceStart": ingest["sourceStart"],
                   "thumbs": {"sprite": "thumbs.jpg", "index": "thumbs.json"}},
         "shots": [shot],
-        "unreconstructed": shots.get("unreconstructed", []),
+        "unreconstructed": [],
         "qa": qa,
         "createdAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }

@@ -62,7 +62,7 @@ A world opens in **ride-along**: the camera follows the original video's path, a
 - **Sound.** The original audio is the soundtrack. When you walk away from the camera, it becomes spatial and comes from where the camera was.
 - **Playback speed.** 0.5×, 1×, 1.5× or 2×, from the speed button on the timeline.
 - **Outside the rebuilt shot.** Only one continuous shot of each video is rebuilt. When the video plays a part outside it, the world gives way to the video on a floating panel.
-- **HUD.** The scene title, a short scene description written by Gemini, a creator credit that is always visible, and a controls hint (the **?** button).
+- **HUD.** The scene title, a creator credit that is always visible, and a controls hint (the **?** button).
 
 ### Controls
 
@@ -86,10 +86,9 @@ U splat has three parts: a **Chrome extension** that adds the button, an offline
 flowchart LR
   YT["YouTube watch page<br/>+ Step inside button"] -->|"opens /w/:youtubeId"| VIEW
   LAND["Landing page<br/>paste a link / carousel"] --> VIEW
-  VID["YouTube video"] --> PIPE["GPU pipeline<br/>S0 … S9"]
+  VID["Video clip"] --> PIPE["GPU pipeline<br/>S0 … S9"]
   PIPE -->|"world package"| WORLDS[("worlds/:id/v1/")]
   WORLDS --> VIEW["Web viewer<br/>three.js + Spark"]
-  PIPE <-->|"scene card, identity frames"| GEM["Gemini API"]
 ```
 
 ### 1. The pipeline: video in, world out
@@ -98,20 +97,16 @@ The pipeline runs offline on a GPU, one stage at a time. Each stage reads the pr
 
 | Stage | What it does | Main tools |
 |---|---|---|
-| **S0** Ingest | Normalises the clip to 1280×720 at 30 fps, makes the playback video and timeline thumbnails, extracts frames | yt-dlp, ffmpeg |
-| **S1a** Shots | Finds the camera cuts and picks the best single continuous shot (60 s or less). Mixing two shots would corrupt the 3D solve. | PySceneDetect |
-| **S1b** Director | Writes the scene card (title and description) and suggests what to segment besides people (animals, vehicles) | Gemini |
+| **S0** Ingest | Normalises the clip (one continuous shot, 60 s or less) to 1280×720 at 30 fps, makes the playback video and timeline thumbnails, extracts frames | ffmpeg |
 | **S2** Masks | Cuts out every person and moving object in every frame, with a stable ID per instance | SAM 3 |
 | **S3** Cameras + depth | Recovers where the camera was and which way it pointed in every frame, plus depth | Depth Anything 3 |
 | **S3b** World frame | Finds the floor and rescales everything so the floor is y = 0, up is +Y and units are metres | custom |
 | **S4a / S4** Background | Fills the holes where people stood, then trains the Gaussian splat background with people masked out | LaMa, gsplat |
 | **S5** Bounds | Works out which floor was actually seen and builds the walk boundary | custom |
 | **S6a / S6b** Bodies | Tracks each person's 3D body pose per frame and places them in the world with their feet on the floor | GVHMR, SMPL-X |
-| **S7a / S7** Avatars | Picks the clearest photo of each person and builds a 3D Gaussian avatar from it, rigged to the tracked motion | Gemini, LHM |
+| **S7** Avatars | Picks the largest clear crop of each person and builds a 3D Gaussian avatar from it, rigged to the tracked motion | LHM |
 | **S8** People layer | Packs the people's real pixels and depth into a video, so they look exactly like the footage near the original camera | Video Depth Anything, ffmpeg |
-| **S9a** Package | Writes the world package the viewer loads | Spark tools |
-
-Gemini is optional everywhere: every Gemini call has a non-Gemini fallback, so a world can be built without it.
+| **S9a / S9b** Package + QA | Writes the world package the viewer loads, then scores the splat against the source frames | Spark tools, gsplat |
 
 ### 2. The world package
 
@@ -166,19 +161,17 @@ A world shows up in the carousel as soon as its folder is in `worlds/`. Details 
 
 Building a world needs an NVIDIA GPU with about 48 GB of memory. We used a RunPod A40, because Vultr's cloud GPUs were unavailable in every region. A 30 s clip takes roughly an hour.
 
-1. **Set up the box** with one conda env per model family (`pipeline/envs/*.yml`) and the model weights. See [docs/gpu-setup.md](docs/gpu-setup.md).
-2. **Add keys.** Copy `.env.example` to `.env` and fill in only what you need (`GEMINI_API_KEY`, `HF_TOKEN`, …). Never commit `.env`.
-3. **Download the clip on your laptop.** YouTube blocks the GPU box. Keep it to 60 s or less of one continuous shot; 15–40 s works best.
-4. **Run the pipeline:**
+1. **Set up the box** with one conda env per model family (`pipeline/envs/*.yml`) and the model weights. See [docs/gpu-setup.md](docs/gpu-setup.md). `HF_TOKEN` goes in `/workspace/.env` on the box. Never commit `.env`.
+2. **Trim a clip** to 60 s or less of one continuous shot (no cuts); 15–40 s works best. For a YouTube clip, run `pipeline/fetch_youtube.sh <id> <start> <end>` on your laptop, because YouTube blocks the box.
+3. **Run it from your laptop:**
 
    ```bash
-   python pipeline/run.py --youtube-id <id> --stages S0..S9 [--window a,b] [--force]
+   pipeline/remote.sh root@<ip>:<port> clip.mp4 [--preset fast|quality] [--set S4.steps=50000] [--no-people]
    ```
 
-   Intermediate output goes to `work/<id>/` (git-ignored). The finished package goes to `worlds/<id>/v1/`.
-5. **Copy the world** to your laptop's `worlds/`. It appears in the carousel on refresh.
+   This runs the whole pipeline on the box and copies the finished world into `worlds/<id>/v1/`. It appears in the carousel on refresh.
 
-The step-by-step guide, from a YouTube link to a world you can walk in, is [docs/youtube-to-world.md](docs/youtube-to-world.md). Each stage's inputs, outputs and skip logic are in [docs/pipeline-runner.md](docs/pipeline-runner.md).
+Options, stages, skip logic and the stage contract are in [docs/pipeline-runner.md](docs/pipeline-runner.md).
 
 ## Repo layout
 
@@ -188,7 +181,7 @@ The step-by-step guide, from a YouTube link to a world you can walk in, is [docs
 | `web/` | Landing page and viewer (Vite + TypeScript + three.js + Spark) |
 | `web/src/people/` | Avatars, the real-pixel people layer and the blend between them |
 | `pipeline/` | Stage scripts `s0_ingest.py` … `s9_package.py`, the runner `run.py`, conda envs in `envs/`, tests in `tests/` |
-| `config/` | `gemini.yaml`: the pinned Gemini model and prompts |
+| `config/` | `pipeline.toml`: pipeline presets (`--preset fast`, `quality`) |
 | `server/` | Placeholder for the job API and GPU worker (planned, not built) |
 | `worlds/` | World packages; only `9lY7iZl1KbI` is committed |
 | `work/` | Pipeline scratch output (git-ignored) |
@@ -200,8 +193,7 @@ The step-by-step guide, from a YouTube link to a world you can walk in, is [docs
 |---|---|
 | Extension | Chrome Manifest V3, plain JavaScript |
 | Web | Vite, TypeScript, three.js, Spark (Gaussian splat rendering), Web Audio |
-| Ingest | yt-dlp, ffmpeg, PySceneDetect |
-| AI director | Google Gemini (scene cards, segmentation hints, identity frames) |
+| Ingest | ffmpeg (yt-dlp on the laptop for YouTube clips) |
 | Segmentation | SAM 3 |
 | 3D reconstruction | Depth Anything 3, gsplat, LaMa |
 | People | GVHMR, SMPL-X, LHM, Video Depth Anything |
@@ -214,16 +206,14 @@ The step-by-step guide, from a YouTube link to a world you can walk in, is [docs
 | [docs/prd.md](docs/prd.md) | The product spec: scope, decisions, architecture and the contracts between parts |
 | [docs/world-format.md](docs/world-format.md) | The world package format |
 | [docs/demo-worlds.md](docs/demo-worlds.md) | Which worlds exist and how they're shared |
-| [docs/youtube-to-world.md](docs/youtube-to-world.md) | Building a world by hand on the GPU box |
-| [docs/pipeline-runner.md](docs/pipeline-runner.md) | Pipeline stages, skip logic and the stage contract |
+| [docs/pipeline-runner.md](docs/pipeline-runner.md) | Running the pipeline: options, stages, skip logic and the stage contract |
 | [docs/recon-pipeline.md](docs/recon-pipeline.md) | Cameras, depth, splat training and bounds |
 | [docs/people-pipeline.md](docs/people-pipeline.md) | Masks, bodies, avatars and the people layer |
-| [docs/gemini-director.md](docs/gemini-director.md), [docs/gemini-setup.md](docs/gemini-setup.md) | How Gemini is used, and setup |
 | [docs/gpu-setup.md](docs/gpu-setup.md), [docs/gpu-ledger.md](docs/gpu-ledger.md) | GPU box setup and spend |
 | [docs/extension-setup.md](docs/extension-setup.md) | Installing and configuring the extension |
 
 ## Licences and credits
 
-This is a non-commercial hackathon demo. Some of the models it uses are licensed for research only: Depth Anything 3 Large/Giant weights and Pi3X (CC BY-NC), and SMPL/SMPL-X (non-commercial). SAM 3 is under Meta's own licence. gsplat, Spark, LHM's code and yt-dlp are permissively licensed. Details are in [PRD §17](docs/prd.md#17-licences).
+This is a non-commercial hackathon demo. Some of the models it uses are licensed for research only: Depth Anything 3 Large/Giant weights (CC BY-NC), and SMPL/SMPL-X (non-commercial). SAM 3 is under Meta's own licence. gsplat, Spark, LHM's code and yt-dlp are permissively licensed. Details are in [PRD §17](docs/prd.md#17-licences).
 
 The landing page photo is *Moraine Lake at 6AM* by [Redd Francisco](https://unsplash.com/@reddfrancisco) on Unsplash.
