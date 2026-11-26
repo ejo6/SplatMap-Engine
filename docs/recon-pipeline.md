@@ -1,12 +1,12 @@
 # Reconstruction pipeline (Eric)
 
-Stages S3–S5 and S9a from PRD §7.2. Each reads and writes `work/<youtubeId>/<stage>/` and runs in the `recon` env.
+Stages S3–S5 and S9 from PRD §7.2. Each reads and writes `work/<id>/<stage>/` and runs in the `recon` env.
 
 ## S3 cameras + depth: `pipeline/s3_cameras.py` (E-02)
 
 - **Run:** `python pipeline/s3_cameras.py --work work/<id> [--kf-fps 5] [--process-res 504] [--zoom-tol 0.08] [--force]`, or `run.py --stages S3`. It skips if `S3/raw_cameras.json` exists.
 - **Input:** `S0/frames/*.jpg`, every frame of the window at 30 fps.
-- **Selected shot only (KAN-87):** keyframes come from S1a's `selected` shot; frames in other shots repeat the shot's edge pose. Before this, a clip with a cut fused two places into one world. S2 likewise keeps per-person tracks only inside the shot (the union mask still covers every frame).
+- **One shot only:** the whole clip is solved as one shot. There is no cut detection (it fired on pans and exposure changes), so the clip must be trimmed to one continuous shot: a cut fuses two places into one world.
 - **Method:**
   - DA3 (`DA3NESTED-GIANT-LARGE-1.1`, metric) runs on keyframes every 6th frame plus the last frame, as **one global solve** (no stitching, Orbis PR #82).
   - Poses are interpolated to every frame: slerp for rotation, lerp for position.
@@ -20,7 +20,7 @@ Stages S3–S5 and S9a from PRD §7.2. Each reads and writes `work/<youtubeId>/<
 - **Long shots (E-09):** a shot with more than `--chunk` keyframes (default 360) is solved in overlapping chunks, with 25% overlap.
   - Each chunk is moved into the previous chunks' world by a similarity fitted on the shared keyframes. Rotation is the chordal mean of the shared camera rotations, scale is the median depth ratio, and translation comes from the mean camera centre. Fitting scale on depth avoids the degenerate case of a camera that barely moves in the overlap.
   - The earlier chunk keeps the first half of the overlap. The stage logs each chunk's scale and the largest camera-centre gap on the shared keyframes.
-  - `raw_cameras.json.chunks` records the number of solves. Pi3X, the alternative solver in the brief, isn't wired in.
+  - `raw_cameras.json.chunks` records the number of solves.
 - **Outputs** (all in DA3's world: arbitrary origin and axes, metric scale; S3b floor-aligns them):
   - `S3/raw_cameras.json`: `{fps, width, height, isMetric, convention:"opencv", intrinsics:{fx,fy,cx,cy}, keyframes:[f...], frames:[{f, c2w:[16]}]}`. `c2w` is row-major 4×4, **OpenCV** axes (x right, y down, z forward), one entry per frame.
   - `S3/raw_depth/<stem>.npy`: keyframe depth in metres, float16, 280×504. Filenames match `S0/frames`.
@@ -57,7 +57,7 @@ Stages S3–S5 and S9a from PRD §7.2. Each reads and writes `work/<youtubeId>/<
 
 ## S4a holes behind people: `pipeline/s4a_holes.py` (E-07)
 
-- **Env:** `lama` (big-lama via `simple-lama-inpainting`). Runs on CPU if no GPU is visible (`CUDA_VISIBLE_DEVICES=`).
+- **Env:** `recon`. big-lama is loaded as TorchScript straight from `torch.jit` (the `big-lama.pt` that `simple-lama-inpainting` used, without that package and its pillow<10 pin). `download_weights.sh` puts it in `$TORCH_HOME/hub/checkpoints/`; it downloads itself if missing, or set `LAMA_MODEL` to a path. Runs on CPU if no GPU is visible.
 - **Run:** `python pipeline/s4a_holes.py --work work/<id> [--min-hole 0.002] [--stride 2] [--force]`, or `run.py --stages S4a`. It skips if `S4/holes/holes.json` exists.
 - **Hole test:** a masked pixel is a hole if no other keyframe saw the background behind it.
   - The background depth behind the mover is guessed by interpolating each depth row across the mask.
@@ -89,23 +89,6 @@ Stages S3–S5 and S9a from PRD §7.2. Each reads and writes `work/<youtubeId>/<
   - Renders at the source poses line up with the frames.
   - The main walker isn't baked in. Where she blocked the background for the whole clip there's a dark unseen smear; that's the hole S4a (E-07, LaMa) fills.
 
-## S4b Atlas fill (optional): `pipeline/s4b_fill.py` (E-12)
-
-- **Run by hand on a clip.** It isn't in `run.py`. It uses the paid World Labs Atlas API, so log spend in `gpu-ledger.md`.
-- **Env:** `recon`, CPU only. Needs `WLT_API_KEY`: an Atlas project key from atlas.worldlabs.ai/developers with `tasks.create`, `operations.read`, `assets.create` and `assets.read`. `pipe_env.sh` loads it from `/workspace/.env`. Legacy Marble API calls return 401 with these keys.
-- **Run:** `python pipeline/s4b_fill.py --work work/<id> [--frames 128] [--draft] [--keep-dist 0.2] [--margin 1] [--force]`. The operation and its SPZ are cached in `S4/atlas/` (or `S4/atlas_draft/`), so `--force` redoes only the merge and never submits again.
-- **Request:** `POST /api/v2/tasks:posedImages2Splats` on `https://api.atlas.worldlabs.ai/api/v2`, with header `WLT-Api-Key`. Each of `--frames` keyframes is sent as:
-  - the JPEG, uploaded as an asset;
-  - S3 depth resized to 1280×720 as a linear EXR in metres;
-  - the S2 union mask inverted (1 = keep), so people are excluded;
-  - the S3 camera (`position`, `quaternion` xyzw, `coordinateSystem: "rub"`, pixel intrinsics).
-- **Refine vs draft:** `refine=true` is the generative pass: Atlas places extra cameras, repairs their renders and retrains, which fills space the video never saw. `--draft` (`refine=false`, at most 32 frames) only rebuilds the views it's given and is billed as a draft.
-- **Frame:** the SPZ comes back in our world frame and metres. On the IMG_6714 draft: mean offset under 2 cm, scale ratio 0.998, and every flipped axis convention fit worse. No alignment step is needed.
-- **SPZ:** `read_spz` decodes Niantic SPZ v2/v3 (gzip, 24-bit fixed-point positions, smallest-three quaternions). Checked against a `build-lod` SPZ of our own splat: positions within 0.1 mm, opacity within 0.003.
-- **Merge:** Atlas splats more than `--keep-dist` from a solid real splat and inside the S4 scene box grown by `--margin` are appended to the real ones, with higher SH zeroed. The draft scattered floaters up to 38 m out, which is why the box is applied.
-- **Outputs:** `S4/world_filled.ply` (`world.ply` is untouched) and `S4/fill.json` `{operationId, realCount, fillCount, overlapMedian}`. Splats from index `realCount` on are generated.
-- **Use it:** S9a still packages `world.ply`. To view the fill, build the LoD from `world_filled.ply` by hand.
-
 ## S5 bounds: `pipeline/s5_bounds.py` (E-06)
 
 - **Env:** `recon`, CPU only. About 25 s on IMG_6714 (224 keyframes).
@@ -134,7 +117,7 @@ Stages S3–S5 and S9a from PRD §7.2. Each reads and writes `work/<youtubeId>/<
   - The S8 people layer, if S8 ran: sets `peopleLayer`.
   - Each `S6/people/p*/` folder (person.json, motion.bin): fills `shots[0].people`. If S7 made `S7/people/p*/avatar.ply` and `skin.bin`, they are copied in and `person.json.avatar` is set to `{kind: "splat-lbs", url, skin, splats}` (PRD §8.4). `.gitignore` ignores `*.ply` under `worlds/` except `people/*/avatar.ply`.
 - **Manifest:**
-  - Title and scene card come from `S1/director.json`, falling back to the ingest title.
+  - The title is the clip's file name (`S0/ingest.json`). The scene card is empty, and the whole clip is shot `s0`.
   - `credit.url` is set only for 11-character YouTube IDs.
   - `qa.verdict` is `unchecked` until S9b.
   - Only the selected shot is packaged (`s0`); E-10 adds more shots.
@@ -143,12 +126,12 @@ Stages S3–S5 and S9a from PRD §7.2. Each reads and writes `work/<youtubeId>/<
 
 ## Alignment check and QA renders: `pipeline/tools/align_check.py` (E-05, G2 gate)
 
-- **Run:** `python pipeline/tools/align_check.py --work work/<id> [--n 10]` in the `recon` env (export the CUDA vars first). It takes about 15 s.
+- **Run:** automatically as S9b of `run.py` (its scores also go into `work/<id>/run.json`), or by hand: `python pipeline/tools/align_check.py --work work/<id> [--n 10]` in the `recon` env (export the CUDA vars first). It takes about 15 s.
 - **Alignment:**
   - Renders `S4/world.ply` at n evenly spaced frames using `S3/cameras.json`. These include interpolated, non-keyframe poses.
   - Compares each render with the source frame. PSNR and SSIM are computed on **non-mover pixels only** (S2 union mask).
   - Writes `qa/align.json` `{frames:[{f, psnr, ssim}], psnr, ssim}` and `qa/align_sheet.jpg`. Each row of the sheet is source | render | 50/50 blend; in the blend, misalignment shows as doubled edges.
-- **QA views for K-04 (Gemini gate) and human review:** 8 renders.
+- **QA views for human review:** 8 renders.
   - `path_25`, `path_50` and `path_75`: on the camera path.
   - At the midpoint: `left_1m`, `right_1m`, `forward_1m` (moves in the camera's own frame), and `yaw_left_20` / `yaw_right_20` (turns about world +Y).
   - Written as `qa/view_<name>.jpg` plus `qa/views.json` `[{name, file, c2w:[16]}]`, with three.js c2w.

@@ -1,8 +1,7 @@
 """S2 Masks (PRD §7.2, ticket A-01 / KAN-36).
 
-SAM 3 video segmentation with a baseline person prompt and optional mover hints:
+SAM 3 video segmentation of every mover named in --prompts ("person" plus e.g. "dog,car"):
   in : work/<id>/S0/frames/*.jpg           (K-01)
-       work/<id>/S1/director.json          (K-03, optional animal and vehicle hints)
   out: work/<id>/S2/masks/o<objId>/<frame>.png   per-instance mask, only frames where visible
        work/<id>/S2/masks/union/<frame>.png      every frame, all movers, dilated (255 = mover)
        work/<id>/S2/tracks.json                  instance ids, labels, visible ranges, boxes
@@ -35,16 +34,12 @@ def progress(pct, eta=None):
     print(json.dumps({"stage": STAGE, "pct": round(pct, 1), "eta": eta}), flush=True)
 
 
-def load_prompts(director_path):
-    """Return the person prompt plus optional animal and vehicle hints."""
+def load_prompts(spec):
+    """'person,dog' -> {"person": "person", "dog": "other"}. "person" is always prompted; only it becomes a body."""
     prompts = {"person": "person"}
-    if director_path.exists():
-        subjects = json.loads(director_path.read_text()).get("subjects", [])
-        for subject in subjects:
-            noun = subject.get("noun", "").strip().lower()
-            kind = subject.get("kind")
-            if noun and kind in {"animal", "vehicle"}:
-                prompts.setdefault(noun, kind)
+    for noun in spec.split(","):
+        if noun := noun.strip().lower():
+            prompts.setdefault(noun, "other")
     return prompts
 
 
@@ -70,13 +65,6 @@ def save_mask(mask, path):
     Image.fromarray(mask.cpu().numpy().astype(np.uint8) * 255).save(path)
 
 
-def selected_frames(work, n):
-    """S1a's selected shot as frames [a, b); the whole clip if S1a didn't run (PRD §3: one shot per world)."""
-    p = work / "S1" / "shots.json"
-    sel = json.loads(p.read_text())["selected"] if p.exists() else None
-    return (sel["startFrame"], min(sel["endFrame"], n)) if sel else (0, n)
-
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--work", required=True, type=Path, help="work/<youtubeId>")
@@ -84,6 +72,7 @@ def main():
     ap.add_argument("--min-frames", type=int, default=10, help="drop instances visible fewer frames (still in union)")
     ap.add_argument("--max-objects", type=int, default=20,
                     help="cap on tracked objects; SAM 3 keeps the highest-scoring detections (KAN-76: crowds OOM)")
+    ap.add_argument("--prompts", default="person", help="comma-separated movers to mask, e.g. person,dog,car")
     ap.add_argument("--force", action="store_true")
     args = ap.parse_args()
 
@@ -96,9 +85,8 @@ def main():
     if not frame_paths:
         sys.exit(f"no frames in {args.work / 'S0' / 'frames'}")
     frames = [Image.open(p).convert("RGB") for p in frame_paths]
-    a, b = selected_frames(args.work, len(frames))
     width, height = frames[0].size
-    prompts = load_prompts(args.work / "S1" / "director.json")
+    prompts = load_prompts(args.prompts)
 
     from transformers import Sam3VideoModel, Sam3VideoProcessor
 
@@ -138,8 +126,6 @@ def main():
             masks = o["masks"]
             union = masks.any(0) if len(masks) else torch.zeros(height, width, dtype=torch.bool)
             save_mask(dilate(union.to(device), args.dilate), union_dir / png)
-            if not a <= f < b:  # other shots: union only (keeps S4 clean), no per-person tracks for S6-S8
-                continue
             for oid, m, box, score in zip(o["object_ids"].tolist(), masks, o["boxes"].tolist(), o["scores"].tolist()):
                 t = tracks.setdefault(oid, {"prompt": prompt_of.get(oid), "frames": [], "boxes": [], "scores": []})
                 t["frames"].append(f)

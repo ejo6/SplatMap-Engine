@@ -1,5 +1,5 @@
-# S3/S3b/S4/S5: Depth Anything 3 (+ Pi3X fallback), gsplat training, bounds (KAN-26..35)
-# After create: pip install -e /workspace/src/Depth-Anything-3 and -e /workspace/src/Pi3 (see setup_gpu.sh)
+# S0, S3-S5, S9: ingest (system ffmpeg), Depth Anything 3, LaMa (TorchScript, S4a), gsplat training, bounds, packaging
+# After create: pip install -e /workspace/src/Depth-Anything-3 (see setup_gpu.sh)
 name: recon
 channels: [nvidia/label/cuda-12.4.1, conda-forge]
 dependencies:
@@ -13,6 +13,4 @@ dependencies:
       - xformers==0.0.28.post3
       - numpy==1.26.4
       - plyfile==1.1.3
-      - open3d==0.19.0
-      - viser==1.1.1
       - gsplat==1.5.3   # CUDA kernels JIT-compile on first use; needs cuda-toolkit above (see smoke.sh gsplat for env vars)

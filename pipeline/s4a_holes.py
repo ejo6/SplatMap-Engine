@@ -1,4 +1,4 @@
-"""S4a holes behind people (E-07, PRD §7.2 S4). Runs before S4 in the `lama` env.
+"""S4a holes behind people (E-07, PRD §7.2 S4). Runs before S4 in the `recon` env.
 
 For each keyframe, finds the mover-masked pixels whose background no other keyframe ever saw, and
 inpaints the frame with LaMa. S4 then supervises only those hole pixels with the inpainted image at
@@ -15,6 +15,7 @@ counts as seen if it lands inside the frame, outside that frame's mask, and agre
 """
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -24,6 +25,8 @@ from PIL import Image
 
 STAGE = "S4a"
 CV_FROM_GL = np.diag([1.0, -1.0, -1.0, 1.0])
+# big-lama as TorchScript (the file simple-lama-inpainting used); plain torch, so it needs no env of its own.
+LAMA_URL = "https://github.com/enesmsahin/simple-lama-inpainting/releases/download/v0.1.0/big-lama.pt"
 
 
 def progress(pct, eta=None):
@@ -38,6 +41,28 @@ def fill_rows(d, m):
         ok = ~m[r] & (d[r] > 0)
         out[r, m[r]] = np.interp(cols[m[r]], cols[ok], d[r, ok]) if ok.sum() >= 2 else 0
     return out
+
+
+def load_lama():
+    """Returns inpaint(rgb HxWx3 uint8, mask HxW bool) -> HxWx3 uint8."""
+    import torch
+
+    path = Path(os.environ.get("LAMA_MODEL") or Path(torch.hub.get_dir()) / "checkpoints" / "big-lama.pt")
+    if not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        torch.hub.download_url_to_file(LAMA_URL, str(path))
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = torch.jit.load(str(path), map_location=device).eval()
+
+    def inpaint(rgb, mask):
+        h, w = mask.shape
+        ph, pw = -h % 8, -w % 8  # LaMa needs sides divisible by 8
+        img = np.pad(rgb.transpose(2, 0, 1).astype(np.float32) / 255, ((0, 0), (0, ph), (0, pw)), mode="symmetric")
+        m = np.pad(mask[None].astype(np.float32), ((0, 0), (0, ph), (0, pw)), mode="symmetric")
+        with torch.inference_mode():
+            out = model(torch.from_numpy(img)[None].to(device), torch.from_numpy(m)[None].to(device))
+        return np.clip(out[0].permute(1, 2, 0).cpu().numpy()[:h, :w] * 255, 0, 255).astype(np.uint8)
+    return inpaint
 
 
 def main():
@@ -66,7 +91,6 @@ def main():
                                  .resize((dw, dh), Image.NEAREST)) >= 128 for f in kf])
     fx, fy, cx, cy = I["fx"] * dw / W, I["fy"] * dh / H, I["cx"] * dw / W, I["cy"] * dh / H
 
-    from simple_lama_inpainting import SimpleLama
     lama, report = None, {}
     for j, f in enumerate(kf):
         hole = np.zeros((dh, dw), bool)
@@ -102,9 +126,9 @@ def main():
             # LaMa removes the whole (slightly grown) person, so no body pixels leak into the fill.
             person = cv2.dilate(cv2.resize(masks[j].astype(np.uint8) * 255, (W, H), interpolation=cv2.INTER_NEAREST),
                                 np.ones((15, 15), np.uint8))
-            lama = lama or SimpleLama()
-            rgb = Image.open(w / "S0/frames" / f"{stems[f]}.jpg").convert("RGB")
-            lama(rgb, Image.fromarray(person)).resize((W, H)).save(out / f"{stems[f]}.jpg", quality=95)
+            lama = lama or load_lama()
+            rgb = np.asarray(Image.open(w / "S0/frames" / f"{stems[f]}.jpg").convert("RGB"))
+            Image.fromarray(lama(rgb, person > 0)).save(out / f"{stems[f]}.jpg", quality=95)
         progress(100 * (j + 1) / len(kf))
 
     (out / "holes.json").write_text(json.dumps({"frames": report}, indent=1))

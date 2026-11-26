@@ -25,7 +25,7 @@ How the GPU box is built and how to bring a fresh pod back up. Everything heavy 
   models/           SMPL/SMPL-X (copied by hand), weights.log
   work/ worlds/     pipeline output          .env    HF_TOKEN etc. (never commit)
   rust/ cargo/      Rust toolchain for Spark build-lod
-  repo/pipeline/envs/  copy of this repo's pipeline/envs (rsync from a laptop)
+  repo/pipeline/ repo/config/  copy of this repo's pipeline/ and config/ (remote.sh rsyncs them)
 ```
 
 ## Fresh pod (volume already set up)
@@ -42,10 +42,10 @@ Use `rsync -rlt` (not `-a`): the network volume rejects `chown`. Use `tar --no-s
 ```bash
 bash pipeline/envs/setup_gpu.sh            # all envs; or: setup_gpu.sh recon sam3 ...
 bash pipeline/envs/download_weights.sh     # weights (re-runnable)
-bash pipeline/envs/smoke.sh da3 pi3x gsplat sam3 vda lama lhm ingest spark gvhmr
+bash pipeline/envs/smoke.sh da3 gsplat sam3 lama lhm spark gvhmr
 ```
 
-Base install (once): `apt install git git-lfs ffmpeg build-essential`, Miniforge at `/workspace/miniforge`, Deno at `/workspace/deno`, then `git clone --depth 1` of each repo into `/workspace/src`.
+Base install (once): `apt install git git-lfs ffmpeg build-essential`, Miniforge at `/workspace/miniforge`, then `git clone --depth 1` of each repo into `/workspace/src`.
 
 ## Envs
 
@@ -53,16 +53,15 @@ Run with `/workspace/envs/<name>/bin/python` (no activation needed). Specs: `pip
 
 | Env | Python / torch | Contents | Used by |
 |---|---|---|---|
-| `ingest` | 3.11 / none | yt-dlp, bgutil PO-token plugin, PySceneDetect, google-genai, boto3 | S0, S1 (Kevin) |
-| `recon` | 3.11 / 2.5.1 cu124 | Depth Anything 3 (editable), Pi3X (editable), gsplat 1.5.3, open3d, plyfile, viser, conda `cuda-toolkit=12.4` | S3–S5, S9 (Eric) |
+| `recon` | 3.11 / 2.5.1 cu124 | Depth Anything 3 (editable), gsplat 1.5.3, plyfile, conda `cuda-toolkit=12.4`. Also runs `run.py` itself, S0 (system ffmpeg) and S4a LaMa (TorchScript) | S0, S3–S5, S9 |
 | `sam3` | 3.12 / 2.7.1 cu126 | SAM 3 repo (editable) + transformers 5.24 (`Sam3VideoModel`, used by `s2_masks.py`) + kernels | S2 (Adam) |
-| `people` | 3.10 / 2.3.0 cu121 | GVHMR (editable, pytorch3d wheel), Multi-HMR deps (run from `/workspace/src/multi-hmr`) | S6 (Adam) |
+| `people` | 3.10 / 2.3.0 cu121 | GVHMR (editable, pytorch3d wheel) | S6 |
 | `lhm` | 3.10 / 2.3.0 cu121 | LHM requirements, pytorch3d, BasicSR, SAM 2 fork, diff-gaussian-rasterization, simple-knn, conda `cuda-toolkit=12.1` | S7 (Adam) |
 | `depth` | 3.10 / 2.1.1 cu121 | Video Depth Anything requirements | S8 (Adam) |
-| `lama` | 3.10 / 2.1.1 cu121 | simple-lama-inpainting (big-lama auto-downloads) | S4 holes (Eric, P1) |
-| `node` | Node 20 | Spark `build-lod` lives at `/workspace/src/spark/rust/target/release/build-lod` (Rust, built with `cargo build --release` in `rust/build-lod`; toolchain in `/workspace/rust` + `/workspace/cargo`) | S9 (Eric) |
 
-**Compiling CUDA code (gsplat JIT, LHM extensions):** the conda `cuda-toolkit` puts headers under `targets/`, so export these first (as `smoke.sh` does):
+Spark `build-lod` (S9a) is a Rust binary at `/workspace/src/spark/rust/target/release/build-lod` (override with `$BUILD_LOD`), built with `cargo build --release` in `rust/build-lod`. Its toolchain is in `/workspace/rust` and `/workspace/cargo`.
+
+**Compiling CUDA code (gsplat JIT, LHM extensions):** the conda `cuda-toolkit` puts headers under `targets/`. `run.py` sets the variables below for each stage itself. For running a script by hand, export them first (as `smoke.sh` does):
 
 ```bash
 R=/workspace/envs/recon; T=$R/targets/x86_64-linux
@@ -79,10 +78,9 @@ All via `download_weights.sh`. Hugging Face models land in `HF_HOME=/workspace/h
 | Model | Source | Notes |
 |---|---|---|
 | DA3 | `depth-anything/DA3NESTED-GIANT-LARGE-1.1` | Best quality; CC BY-NC |
-| Pi3X | `yyfz233/Pi3X` | Fallback solver; CC BY-NC |
 | SAM 3 | `facebook/sam3` | Gated: needs `HF_TOKEN` in `/workspace/.env` from an account with approved access |
-| Video Depth Anything | `depth-anything/Video-Depth-Anything-Large` + `Metric-Video-Depth-Anything-Small` | Symlinked into `src/Video-Depth-Anything/checkpoints/` |
-| Multi-HMR | `naver/multiHMR_896_L` | |
+| Video Depth Anything | `depth-anything/Metric-Video-Depth-Anything-Small` | Symlinked into `src/Video-Depth-Anything/checkpoints/` (S8) |
+| big-lama | TorchScript `big-lama.pt` (GitHub release of simple-lama-inpainting) | `/workspace/.cache/torch/hub/checkpoints/` (S4a) |
 | GVHMR | HF mirror `camenduru/GVHMR` → `src/GVHMR/inputs/checkpoints/` | dpvo, gvhmr, hmr2, vitpose, yolo |
 | LHM | `3DAIGC/LHM-1B-HF` + LHM prior tar (Aliyun) → `src/LHM/pretrained_models/` | Prior is an 18.8 GB tar; extracted, then deleted |
 | SMPL / SMPL-X | For now `/workspace/models/smplx` and `/workspace/models/smpl` are symlinks to the copies bundled in LHM's prior (`src/LHM/pretrained_models/human_model_files/`) | Linked into GVHMR `inputs/checkpoints/body_models/`. The SMPL licence expects each user to register at smpl-x.is.tue.mpg.de / smpl.is.tue.mpg.de (Adam, S-02) |
@@ -91,19 +89,16 @@ Volume use after setup: about 50 GB of 187 GB.
 
 ## Smoke tests
 
-`bash pipeline/envs/smoke.sh <test>...` on the shared input (Pi3's `man_walking_long` sample cut to 3 s at 720p, 10 frames). Measured on the A40, 2026-11-21. Times include model load.
+`bash pipeline/envs/smoke.sh <test>...` on the shared input (`$SMOKE_CLIP`, default Pi3's `man_walking_long` sample, cut to 3 s at 720p, 10 frames). Measured on the A40, 2026-11-21. Times include model load. The `lama` and `lhm` tests were changed after the cleanup (LaMa now runs in `recon`, and `lhm` is now an import check) and haven't been re-run.
 
 | Test | Env | Result | Time | Peak VRAM |
 |---|---|---|---|---|
 | `da3` | recon | ✅ depth, extrinsics, intrinsics for 10 frames (504 px default res) | 67 s | 10.6 GB |
-| `pi3x` | recon | ✅ camera poses for 10 frames | 54 s | 9.5 GB |
 | `gsplat` | recon | ✅ 100k Gaussians rasterized at 1280×720, backward OK | 235 s first run (JIT compile), then cached | 0.1 GB |
 | `sam3` | sam3 | ✅ video session, text prompt "person" → masks, boxes, IDs | 69 s | 6.3 GB |
-| `vda` | depth | ✅ depth video for the 3 s clip | 39 s | |
-| `lama` | lama | ✅ inpainted a 280×500 box | 16 s | |
-| `lhm` | lhm | ✅ LHM-1B-HF avatar from one image, animated with a sample motion, video saved | 226 s (124 s generation) | |
-| `ingest` | ingest | ✅ yt-dlp, scenedetect, google-genai, boto3 | 9 s | |
-| `spark` | node | ✅ `build-lod --quality` on 50k random splats → `rand-lod.rad` | 1 s | |
+| `lama` | recon | not re-run since the move from the `lama` env (was ✅ in 16 s) | | |
+| `lhm` | lhm | import check, not re-run (the old full test made an avatar in 226 s) | | |
+| `spark` | recon | ✅ `build-lod --quality` on 50k random splats → `rand-lod.rad` | 1 s | |
 | `gvhmr` | people | ✅ static-camera demo: `hmr4d_results.pt` + in-camera and global renders | 73 s | |
 
 ## Gotchas

@@ -1,81 +1,56 @@
-"""Download and normalize one YouTube window for the reconstruction pipeline."""
+"""S0 ingest: normalize one local video for the pipeline. The clip must be one continuous shot (no cuts).
+
+    python pipeline/s0_ingest.py --work work/<id> --video clip.mp4 [--window a,b] [--source-start s]
+
+  out: work/<id>/S0/video.mp4    1280x720, 30 fps H.264 (15-frame GOP, no B-pyramid) + AAC; aspect kept with
+                                 padding; HDR (iPhone HLG/PQ) is tone-mapped to SDR, or colours wash out
+       work/<id>/S0/frames/      one zero-indexed JPEG per encoded frame
+       work/<id>/S0/thumbs.jpg + thumbs.json   2 fps seek-bar sprite, first tile at t = 0
+       work/<id>/S0/ingest.json  {inputs, sourceStart, fps, frameCount, title}
+YouTube clips are downloaded on a laptop first (pipeline/fetch_youtube.sh): YouTube blocks the GPU box.
+"""
 
 import argparse
-import fcntl
 import json
 import math
-import os
-import re
 import shutil
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 FPS = 30
+MAX_SECONDS = 60
 THUMB_FPS = 2
 TILE_WIDTH, TILE_HEIGHT = 160, 90
 TILE_COLS = 10
-
-
-class IngestError(Exception):
-    def __init__(self, code, detail):
-        super().__init__(detail)
-        self.code = code
-
-
-def parse_window(value):
-    try:
-        start, end = map(float, value.split(","))
-    except ValueError as exc:
-        raise IngestError("invalid_url", "Window must be start,end in seconds.") from exc
-    if not (math.isfinite(start) and math.isfinite(end) and 0 <= start < end
-            and 1 / FPS <= end - start <= 60):
-        raise IngestError("invalid_url", "Window must be positive and span one frame to 60 seconds.")
-    return start, end
+HDR_TRANSFERS = {"arib-std-b67", "smpte2084"}  # HLG, PQ
+TONEMAP = ("zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=hable:desat=0,"
+           "zscale=t=bt709:m=bt709:r=tv,format=yuv420p,")
 
 
 def progress(pct):
     print(json.dumps({"stage": "S0", "pct": pct, "eta": None}), flush=True)
 
 
-def download(youtube_id, start, end, output, ffmpeg):
-    args = [
-        sys.executable, "-m", "yt_dlp", "--ignore-config", "--no-playlist",
-        "--ffmpeg-location", ffmpeg,
-        "--download-sections", f"*{start:.9f}-{end:.9f}",
-        "--print", "after_move:%(title)j",
-        "-f", "bv[height<=720][vcodec^=avc]+ba[ext=m4a]/b[height<=720][ext=mp4]/bv*[height<=720]+ba/b[height<=720]",
-        "--merge-output-format", "mp4", "--remux-video", "mp4",
-        "--socket-timeout", "20", "--retries", "1", "-o", str(output / "source.%(ext)s"),
-    ]
-    deno = shutil.which("deno") or Path(sys.executable).with_name("deno")
-    if Path(deno).is_file():
-        args += ["--js-runtimes", f"deno:{deno}"]
-    if cookies := os.environ.get("YTDLP_COOKIES"):
-        args += ["--cookies", cookies]
-    result = subprocess.run([*args, f"https://www.youtube.com/watch?v={youtube_id}"],
-                            capture_output=True, text=True)
-    if result.returncode or not nonempty(output / "source.mp4"):
-        detail = result.stderr.lower()
-        if any(marker in detail for marker in (
-            "video unavailable", "private video", "has been removed",
-            "not available in your country", "members-only", "not available anymore",
-        )):
-            raise IngestError("video_unavailable", "YouTube did not make this video available.")
-        if "no matching chapters" in detail or "cannot download the selected section" in detail:
-            raise IngestError("video_unavailable", "The requested video window is unavailable.")
-        raise IngestError("download_blocked", "yt-dlp could not download the requested window.")
-    title = result.stdout.strip().splitlines()
-    return json.loads(title[-1]) if title else None
+def parse_window(value):
+    start, end = map(float, value.split(","))
+    if not (0 <= start < end and end - start <= MAX_SECONDS):
+        sys.exit(f"--window must be start,end with 0 <= start < end and at most {MAX_SECONDS} s")
+    return start, end
 
 
-def encode(ffmpeg, output, duration):
+def is_hdr(ffprobe, video):
+    r = subprocess.run([ffprobe, "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=color_transfer",
+                        "-of", "csv=p=0", str(video)], capture_output=True, text=True, check=True)
+    return r.stdout.strip() in HDR_TRANSFERS
+
+
+def encode(ffmpeg, video, output, start, duration, hdr):
     command = [ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "error", "-y"]
     subprocess.run([
-        *command, "-i", str(output / "source.mp4"), "-t", f"{duration:.9f}",
+        *command, "-ss", f"{start:.6f}", "-i", str(video), "-t", f"{duration:.6f}",
         "-map", "0:v:0", "-map", "0:a:0?",
-        "-vf", "scale=1280:720:force_original_aspect_ratio=decrease:force_divisible_by=2,"
+        "-vf", (TONEMAP if hdr else "") + "scale=1280:720:force_original_aspect_ratio=decrease:force_divisible_by=2,"
         "pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30",
         "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "fast", "-crf", "18",
         "-g", "15", "-x264-params", "b-pyramid=none:open-gop=0",
@@ -91,7 +66,7 @@ def encode(ffmpeg, output, duration):
     progress(80)
     frame_count = len(list(frames.glob("*.jpg")))
     if not frame_count:
-        raise IngestError("video_unavailable", "The window contains no video frames.")
+        sys.exit("the window contains no video frames")
     count = math.ceil(frame_count / (FPS // THUMB_FPS))
     cols = min(TILE_COLS, count)
     rows = math.ceil(count / cols)
@@ -107,79 +82,38 @@ def encode(ffmpeg, output, duration):
     return frame_count
 
 
-def nonempty(path):
-    return path.is_file() and path.stat().st_size > 0
-
-
-def complete(output, inputs):
-    try:
-        record = json.loads((output / "ingest.json").read_text())
-        return (record["inputs"] == inputs
-                and all(nonempty(output / name) for name in (
-                    "source.mp4", "video.mp4", "thumbs.jpg", "thumbs.json",
-                ))
-                and all(nonempty(output / "frames" / f"{i:05d}.jpg")
-                        for i in range(record["frameCount"])))
-    except (OSError, ValueError, KeyError):
-        return False
-
-
-def ingest(work, youtube_id, start, end, force):
-    output = work / "S0"
-    inputs = {"youtubeId": youtube_id, "start": start, "end": end}
-    work.mkdir(parents=True, exist_ok=True)
-    with (work / ".s0.lock").open("a") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        if not force and complete(output, inputs):
-            print(json.dumps({"stage": "S0", "pct": 100, "eta": 0, "skipped": True}), flush=True)
-            return
-        ffmpeg = shutil.which("ffmpeg") or shutil.which("ffmpeg", path=str(Path(sys.executable).parent))
-        if not ffmpeg:
-            raise IngestError("internal", "FFmpeg with libx264 is required.")
-        with tempfile.TemporaryDirectory(prefix=".s0-", dir=work) as temp:
-            staging = Path(temp) / "new"
-            staging.mkdir()
-            progress(0)
-            title = download(youtube_id, start, end, staging, ffmpeg)
-            progress(35)
-            frame_count = encode(os.environ.get("S0_ENCODER_FFMPEG", ffmpeg), staging, end - start)
-            (staging / "ingest.json").write_text(json.dumps({
-                "inputs": inputs, "sourceStart": start, "fps": FPS, "frameCount": frame_count,
-                "title": title,
-            }) + "\n")
-            previous = Path(temp) / "previous"
-            if output.exists():
-                output.rename(previous)
-            try:
-                staging.rename(output)
-            except OSError:
-                if previous.exists():
-                    previous.rename(output)
-                raise
-    progress(100)
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--work", type=Path, required=True)
-    parser.add_argument("--youtube-id", required=True)
-    parser.add_argument("--window", default="0,60", help="start,end in seconds")
+    parser.add_argument("--video", type=Path, required=True, help="local video file (one continuous shot)")
+    parser.add_argument("--window", default=f"0,{MAX_SECONDS}", help="start,end in seconds into --video")
+    parser.add_argument("--source-start", type=float,
+                        help="seconds into the original video where this clip starts (YouTube sync); default: window start")
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
-    try:
-        if not re.fullmatch(r"[A-Za-z0-9_-]{11}", args.youtube_id):
-            raise IngestError("invalid_url", "Expected an 11-character YouTube video ID.")
-        start, end = parse_window(args.window)
-        ingest(args.work, args.youtube_id, start, end, args.force)
-    except IngestError as exc:
-        print(json.dumps({"error": exc.code, "detail": str(exc)}), flush=True)
-        return 1
-    except (OSError, subprocess.CalledProcessError):
-        print(json.dumps({"error": "internal", "detail": "S0 encoding or output writing failed."}),
-              flush=True)
-        return 1
-    return 0
+
+    output = args.work / "S0"
+    if (output / "ingest.json").exists() and not args.force:
+        progress(100)
+        return
+    if not args.video.is_file():
+        sys.exit(f"no such video: {args.video}")
+    start, end = parse_window(args.window)
+    ffmpeg = shutil.which("ffmpeg") or sys.exit("ffmpeg (with libx264 and zscale) is required")
+    ffprobe = shutil.which("ffprobe") or sys.exit("ffprobe is required")
+
+    shutil.rmtree(output, ignore_errors=True)
+    output.mkdir(parents=True)
+    progress(0)
+    hdr = is_hdr(ffprobe, args.video)
+    frame_count = encode(ffmpeg, args.video, output, start, end - start, hdr)
+    (output / "ingest.json").write_text(json.dumps({
+        "inputs": {"video": str(args.video), "start": start, "end": end, "hdr": hdr},
+        "sourceStart": start if args.source_start is None else args.source_start,
+        "fps": FPS, "frameCount": frame_count, "title": args.video.stem,
+    }) + "\n")
+    progress(100)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

@@ -1,14 +1,14 @@
 # People pipeline (Adam)
 
-Stages S2, S6, S7 and S8 from PRD §7.2. Each reads and writes `work/<youtubeId>/<stage>/`.
+Stages S2, S6, S7 and S8 from PRD §7.2. Each reads and writes `work/<id>/<stage>/`. `run.py --no-people` skips S6–S8; S2 always runs, because it also erases people from the world.
 
 ## S2 masks: `pipeline/s2_masks.py` (A-01)
 
 - **Env:** the `sam3` env (`pipeline/envs/sam3.yml`, built by `setup_gpu.sh`). SAM 3 is loaded through Hugging Face `transformers` (`Sam3VideoModel`), which is pinned in that yml; the repo's own predictor isn't used. `HF_TOKEN` must belong to an account with `facebook/sam3` access.
-- **Run:** `python pipeline/s2_masks.py --work work/<id> [--dilate 15] [--min-frames 10] [--force]`. It skips if `S2/tracks.json` exists. It prints JSON progress lines like `{"stage":"S2","pct":..,"eta":..}`.
+- **Run:** `python pipeline/s2_masks.py --work work/<id> [--prompts person,dog] [--dilate 15] [--min-frames 10] [--force]`, or `run.py --set S2.prompts=person,dog`. It skips if `S2/tracks.json` exists. It prints JSON progress lines like `{"stage":"S2","pct":..,"eta":..}`.
 - **Inputs:**
   - `S0/frames/*.jpg`: every frame of the processed window, sorted by name.
-  - `S1/director.json` (optional): reads `subjects: [{noun, kind}]`, where `kind` is `person`, `animal` or `vehicle`. SAM 3 always receives `"person"` plus any distinct animal and vehicle nouns in one session.
+  - `--prompts` (default `person`): comma-separated nouns, all prompted in one SAM 3 session. `person` is always included. Other nouns (animals, vehicles) are masked out of the world but are labelled `other`, so they never become bodies.
 - **Outputs:** mask PNGs use the same filename stem as the source frame in `S0/frames`. Frame numbers inside `tracks.json` are 0-based indices into the sorted frame list.
   - `S2/masks/union/<frame>.png`: one file for **every** frame. 255 means a mover (any instance, dilated by `--dilate` px). E-04 excludes this from both the RGB and depth losses.
   - `S2/masks/o<objId>/<frame>.png`: one mask per instance, written **only for frames where it's visible**, undilated. A missing file means not visible.
@@ -39,21 +39,6 @@ Stages S2, S6, S7 and S8 from PRD §7.2. Each reads and writes `work/<youtubeId>
   - `inv = 1/far + (v - 16)/239 * (1/near - 1/far)`, then `depth = 1/inv`.
   - H.264 ringing leaves a few non-mover pixels at 8–55, all within 3 px of a silhouette. The stretched-triangle discard (depth ratio above 1.08) removes them.
 - **Speed:** 8 frames at 960×540 took about 70 s on a Mac CPU. GPU time hasn't been measured.
-
-## S7a identity frames: `pipeline/s7_identity.py` (A-05)
-
-- **Env:** `ingest` (the runner's choice; `ingest.yml` now lists pillow, but envs built before that lack it and S7a fails on `import PIL`). It needs `GEMINI_API_KEY`; without it, it uses the fallback. S7 doesn't need S7a: it falls back to the same largest-mask rule.
-- **Run:** `python pipeline/s7_identity.py --work work/<id> [--force]`. It skips if `S7/identity.json` exists.
-- **Inputs:** `S0/frames`, `S2/tracks.json` (only instances with `label == "person"`), and `S2/masks/o<id>/`.
-- **Method:**
-  - Split each person's visible frames into 8 time bins and take the frame with the largest mask from each bin. Frames where the mask touches the image edge (cut off) are skipped unless a bin has nothing else.
-  - Each candidate is cropped to that person's padded mask box, and **every pixel outside their own mask is set to white**. That's how a bystander's face is never picked (Orbis PR #53).
-  - Gemini (`config/gemini.yaml` model) ranks the crops for front-facing, face visible, full body, unoccluded and sharp.
-  - If Gemini fails or gives an invalid ranking, the fallback (PRD §7.3) ranks by mask area.
-- **Outputs:**
-  - `S7/identity/<id>/cand_<frame>.png`: all candidate crops, kept for review.
-  - `S7/identity/<id>/best.png`: the top-ranked crop.
-  - `S7/identity.json`: `{persons: [{id, frame, ranked: [{frame, crop}], source: "gemini"|"fallback", reason}]}`. `ranked` is best first, and `crop` paths are relative to `S7/`. A-06 uses `best.png`, or the top few for LHM++.
 
 ## Viewer: people layer `web/src/people/holo.ts` (A-10)
 
@@ -105,12 +90,12 @@ Stages S2, S6, S7 and S8 from PRD §7.2. Each reads and writes `work/<youtubeId>
 
 - **Env:** `lhm` (LHM-1B, repo at `--lhm-repo` or `$LHM_REPO`, default `/data/src/LHM`). About 2 minutes per person on the A40.
 - **Run:** `python pipeline/s7_avatar.py --work work/<id> [--force]`. It needs `S6/people/p*/person.json` and `S6/body/<objId>.npz`.
-- **Identity image:** `S7/identity/<objId>/best.png` from S7a, or else the frame where the person's mask is largest and not cut off, cropped the same way.
+- **Identity crops:** the person's visible frames are split into 8 time bins, and the largest mask in each bin becomes a candidate. Frames where the mask touches the image edge are skipped unless a bin has nothing else. Each crop is the padded mask box with **every pixel outside that person's own mask set to white**, so a bystander's face can't end up in the avatar (Orbis PR #53). Crops are tried biggest unclipped first. LHM rejects a crop that is wider than tall (sitting, lying, clipped), and then the next crop is tried. The crops are kept as `S7/people/p<k>/cand_<frame>.png`.
 - **Method:** LHM's own zero-pose export (`infer_mesh`) is run with the person's **GVHMR betas** (zero-padded to LHM's 100). LHM, GVHMR and S6b all use the same `SMPLX_NEUTRAL.npz` (byte-identical), so the Gaussians come out exactly in `motion.bin`'s rest space. LHM keeps one Gaussian per upsampled SMPL-X vertex, in order, so its per-vertex `skinning_weight` (55 joints) is the skin; we keep the top 4 per Gaussian and renormalise.
 - **Outputs (PRD §8.4, `avatar.kind = "splat-lbs"`):**
   - `S7/people/p<k>/avatar.ply`: 3DGS PLY in rest space. Splat `i` is row `i` of `skin.bin`, so nothing downstream may reorder it.
   - `S7/people/p<k>/skin.bin`: Float32 little-endian, `N × 8`: 4 joint indices (as floats), then their 4 weights.
-  - `S7/people/p<k>/identity.png` (when S7a didn't run) and LHM's `refer_*.png` preview, for review.
+  - The candidate crops and LHM's `refer_*.png` preview, for review.
 - **Hands:** LHM's rest uses flat hands, while `motion.bin` includes SMPL-X's mean hand pose, so posed hands come out relaxed rather than flat.
 
 ## Viewer: avatars and people switching `web/src/people/` (A-09)

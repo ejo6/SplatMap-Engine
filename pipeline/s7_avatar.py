@@ -4,7 +4,7 @@ LHM's own zero-pose export is run with the person's GVHMR betas. It uses the sam
 so the Gaussians land exactly in motion.bin's rest space (shaped T-pose, metres, unscaled). LHM keeps one
 Gaussian per upsampled SMPL-X vertex, in order, so its per-vertex skinning weights are the skin.
   in : work/<id>/S6/people/p*/person.json, work/<id>/S6/body/<objId>.npz (betas)
-       work/<id>/S7/identity/<objId>/best.png (S7a), else the largest unclipped mask frame
+       work/<id>/S0/frames + S2/masks/<objId>: identity crops, one per time bin, biggest unclipped mask first
   out: work/<id>/S7/people/p*/avatar.ply   3DGS PLY, splat i = skin row i
        work/<id>/S7/people/p*/skin.bin     Float32 N x 8: 4 joint indices, then 4 weights
 Run in the `lhm` env:  python pipeline/s7_avatar.py --work work/<youtubeId>
@@ -19,7 +19,8 @@ from pathlib import Path
 import numpy as np
 
 STAGE = "S7"
-PAD = 0.1  # identity crop padding as a fraction of the box size (same as S7a)
+PAD = 0.1  # identity crop padding as a fraction of the box size
+N_CANDIDATES = 8  # identity crops tried per person (one per time bin)
 
 
 def progress(pct):
@@ -34,30 +35,53 @@ def top4(weights):
     return np.concatenate([idx, w], axis=1).astype("<f4")
 
 
-def identity_image(work, oid, dest):
-    """S7a's pick if it ran; otherwise its fallback rule: the largest mask not cut off by the frame edge."""
-    best = work / "S7" / "identity" / oid / "best.png"
-    if best.exists():
-        return best
+def pick_candidates(areas, border, k=N_CANDIDATES):
+    """areas/border: {frame: mask px, frame: touches image edge}. Best-area frame from each of k time bins.
+
+    Frames cut off by the image edge are skipped unless a bin has nothing else.
+    """
+    frames = sorted(areas)
+    picks = []
+    for chunk in np.array_split(frames, min(k, len(frames))):
+        inside = [f for f in chunk if not border[f]] or list(chunk)
+        picks.append(int(max(inside, key=lambda f: areas[f])))
+    return picks
+
+
+def crop_person(frame, mask):
+    """Crop to the mask's padded bounding box and blank everything outside the mask to white,
+    so a bystander's face can never end up in the avatar."""
+    from PIL import Image
+
+    ys, xs = np.nonzero(mask)
+    y0, y1, x0, x1 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
+    py, px = int((y1 - y0) * PAD), int((x1 - x0) * PAD)
+    y0, y1 = max(0, y0 - py), min(mask.shape[0], y1 + py)
+    x0, x1 = max(0, x0 - px), min(mask.shape[1], x1 + px)
+    out = np.where(mask[..., None], frame, 255).astype(np.uint8)
+    return Image.fromarray(out[y0:y1, x0:x1])
+
+
+def identity_crops(work, oid, dest):
+    """Candidate identity crops of one person, biggest unclipped mask first, written to dest/cand_<frame>.png."""
     from PIL import Image
 
     stems = [p.stem for p in sorted((work / "S0" / "frames").glob("*.jpg"))]
     track = next(i for i in json.loads((work / "S2" / "tracks.json").read_text())["instances"] if i["id"] == oid)
-    best_f, best_area, best_mask = None, -1, None
+    mask_dir = work / "S2" / "masks" / oid
+    areas, border = {}, {}
     for start, end in track["visible"]:
         for f in range(start, end + 1):
-            m = np.array(Image.open(work / "S2" / "masks" / oid / f"{stems[f]}.png")) > 127
-            clipped = m[0].any() or m[-1].any() or m[:, 0].any() or m[:, -1].any()
-            area = m.sum() / (100 if clipped else 1)  # a clipped mask wins only if nothing else is visible
-            if area > best_area:
-                best_f, best_area, best_mask = f, area, m
-    frame = np.array(Image.open(work / "S0" / "frames" / f"{stems[best_f]}.jpg").convert("RGB"))
-    ys, xs = np.nonzero(best_mask)
-    py, px = int((ys.max() - ys.min()) * PAD), int((xs.max() - xs.min()) * PAD)
-    y0, y1 = max(0, ys.min() - py), min(frame.shape[0], ys.max() + 1 + py)
-    x0, x1 = max(0, xs.min() - px), min(frame.shape[1], xs.max() + 1 + px)
-    Image.fromarray(np.where(best_mask[..., None], frame, 255).astype(np.uint8)[y0:y1, x0:x1]).save(dest)
-    return dest
+            m = np.array(Image.open(mask_dir / f"{stems[f]}.png")) > 127
+            areas[f] = int(m.sum())
+            border[f] = bool(m[0].any() or m[-1].any() or m[:, 0].any() or m[:, -1].any())
+    paths = []
+    for f in sorted(pick_candidates(areas, border), key=lambda f: (border[f], -areas[f])):
+        frame = np.array(Image.open(work / "S0" / "frames" / f"{stems[f]}.jpg").convert("RGB"))
+        mask = np.array(Image.open(mask_dir / f"{stems[f]}.png")) > 127
+        paths.append(dest / f"cand_{stems[f]}.png")
+        crop_person(frame, mask).save(paths[-1])
+    return paths
 
 
 def main():
@@ -97,11 +121,8 @@ def main():
         betas = np.zeros(smplx.smpl_x.shape_param_dim, np.float32)
         b = np.load(work / "S6" / "body" / f"{oid}.npz")["betas"].reshape(-1)
         betas[: len(b)] = b
-        # LHM asserts the person is taller than wide (sitting, lying or edge-clipped crops fail): try S7a's next picks.
-        ranked = work / "S7" / "identity.json"
-        ranked = [work / "S7" / c["crop"] for i in json.loads(ranked.read_text())["persons"] if i["id"] == oid
-                  for c in i["ranked"]] if ranked.exists() else []
-        for image in [identity_image(work, oid, pdir / "identity.png")] + ranked:
+        # LHM asserts the person is taller than wide (sitting, lying or edge-clipped crops fail): try the next crop.
+        for image in identity_crops(work, oid, pdir):
             try:
                 lhm.infer_mesh(str(image), dump_tmp_dir=str(pdir), dump_mesh_dir=str(pdir), shape_param=betas)
                 break

@@ -1,0 +1,9 @@
+# Presets for `pipeline/run.py --preset NAME`. Each table maps a stage to its own flags (the stage script's
+# argument names without "--"). A flag left out keeps the script's default; `--set S4.steps=...` overrides a preset.
+# No preset = every stage's defaults (the settings the demo worlds were built with).
+
+[fast]  # quick look at a new clip: rough splat in a few minutes
+S4 = { steps = 7000 }
+
+[quality]  # starting point for the quality work; not yet measured against the defaults
+S4 = { steps = 50000 }
